@@ -19,7 +19,7 @@ function CodeDecoder({ onCode }: { onCode?: (code: string) => void }) {
           setLoading(true);
           codeToToken(code)
             .then((token) => {
-              onCode?.(token);
+              if (token) onCode?.(token);
             })
             .finally(() => {
               setLoading(false);

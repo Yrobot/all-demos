@@ -1,6 +1,7 @@
 "use client";
 import Auth from "@/components/notion/Auth";
 import CodeDecoder from "@/components/notion/CodeDecoder";
+import PageList from "@/components/notion/PageList";
 import { TOKEN_LOCAL_KEY } from "@/libs/notion";
 import { useLocalStorageState } from "@/libs/hooks";
 
@@ -14,6 +15,11 @@ export default function Page() {
         <span className="opacity-60 mr-1">TOKEN:</span>
         <span>{token ?? "null"}</span>
       </p>
+      {token && (
+        <>
+          <PageList token={token} />
+        </>
+      )}
     </div>
   );
 }

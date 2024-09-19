@@ -5,6 +5,40 @@ import {
   REDIRECT_URL,
 } from "@/env";
 
+const notionFetch = async (
+  url: string,
+  {
+    token,
+    method = "GET",
+    body,
+  }: {
+    token: string;
+    method?: string;
+    body?: any;
+  }
+) =>
+  fetch(url, {
+    method: method,
+    headers: {
+      "Content-Type": "application/json",
+      "Notion-Version": "2022-06-28",
+      Authorization: token,
+    },
+    body: JSON.stringify(body),
+  })
+    .then((res) => res.json())
+    .then((res) => {
+      if (res.object === "error") {
+        console.warn("Notion Fetch Error:\n", res, {
+          url: `[${method}] ${url}`,
+          token,
+          body,
+        });
+        throw new Error(res.message);
+      }
+      return res;
+    });
+
 /* Response
 {
   access_token: "secret_PhTEPhXfuEtm2gvDtRRwlxF3eFYMgXHQHvFPIJrlF51",
@@ -33,19 +67,47 @@ export const codeToToken = async (code: string) => {
   const encoded = Buffer.from(
     `${NOTION_OAUTH_CLIENT_ID}:${NOTION_OAUTH_CLIENT_SECRET}`
   ).toString("base64");
-  const response = await fetch("https://api.notion.com/v1/oauth/token", {
+  const response = await notionFetch("https://api.notion.com/v1/oauth/token", {
     method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      Authorization: `Basic ${encoded}`,
-    },
-    body: JSON.stringify({
+    token: `Basic ${encoded}`,
+    body: {
       grant_type: "authorization_code",
       code: code,
       redirect_uri: REDIRECT_URL,
-    }),
-  }).then((res) => res.json());
+    },
+  });
   console.log(response);
   return response?.access_token;
+};
+
+type Page = {
+  id: string;
+  title: string;
+};
+
+export const getAllPages = async ({
+  token,
+  search = "",
+}: {
+  token: string;
+  search?: string;
+}) => {
+  const response = await notionFetch("https://api.notion.com/v1/search", {
+    method: "POST",
+    token: `Bearer ${token}`,
+    body: {
+      query: search,
+      filter: {
+        property: "object",
+        value: "page",
+      },
+    },
+  });
+  console.log(response);
+  const pages: Page[] = (response?.results ?? []).map((result: any) => ({
+    id: result?.id,
+    title: result?.properties?.title?.title?.[0]?.plain_text,
+  }));
+  console.log(pages);
+  return pages;
 };
