@@ -194,44 +194,42 @@ POST 'https://api.notion.com/v1/databases'
 
 - `body.parent.page_id` is required
 
-### - Add Page & Update Page Content
+#### Situations should be handled
+
+##### 1. For Creating new Page or Database, both require the `parent.page_id`, so we have to ask user to provide at least one page for our Integration.
+
+### - Append Content to Page
+
+```bash
+POST 'https://api.notion.com/v1/blocks/${pageId}/children'
+```
+
+body:
 
 ```json
 {
-  "parent": { "page_id": "494c87d0-72c4-4cf6-960f-55f8427f7692" },
-  "properties": {
-    "title": {
-      "title": [
-        {
-          "type": "text",
-          "text": { "content": "A note from your pals at Notion" }
-        }
-      ]
-    }
-  },
   "children": [
-    {
-      "object": "block",
-      "type": "paragraph",
-      "paragraph": {
-        "rich_text": [
-          {
-            "type": "text",
-            "text": {
-              "content": "You made this page using the Notion API. Pretty cool, huh? We hope you enjoy building with us."
-            }
-          }
-        ]
-      }
-    }
+    // ...
   ]
 }
 ```
 
-#### Situations should be handled
+## Cases
 
-##### 1. For Creating new Page, it requires at least one access page for root.
+### 1. The redirect page - Error display
 
-If there is no access page by user, then we will not be able to create new page or new database (since we could not provide `parent.page_id`).
+display the error in redirect page after the notion install Integration page
 
-##### 2. For Inject content into Notion, we have to ask user to reselect the access page for Integration when there is no access page. Or we could not inject the content into the new page or the excited page.
+### 2. The redirect page - Success and Waiting display
+
+time for us to using the url parameter `code` exchange the notion user token.
+
+And we should store the token into user DB
+
+### 3. Require available page - There is no available page as the Root Page
+
+Since it could that user access no pages for Us, or select some pages which NOT follow our rule(like page title should be `xxxx`).
+
+And Notion requires the `parent.page_id` when create new pages. So we have to ask user to provide at least one available page for our Integration.
+
+### 4.

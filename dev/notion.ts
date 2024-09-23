@@ -306,6 +306,16 @@ const appendDemo = async () => {
   console.log(await appendMarkdownToPage(pageId, md));
 };
 
+async function listPagesUnderId(id: string) {
+  const res = (
+    await notionFetch(`https://api.notion.com/v1/blocks/${id}/children`, {})
+  )?.results?.filter((item: any) =>
+    ["child_page", "child_database"].includes(item.type)
+  );
+  console.log(JSON.stringify(res));
+  return res;
+}
+
 (async () => {
-  
+  await listPagesUnderId(rootPageId);
 })().catch(console.error);
