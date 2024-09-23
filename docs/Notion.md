@@ -6,7 +6,7 @@
 
 ```bash
 # .env
-NOTION_OAUTH_CLIENT_ID=<client-id>
+NEXT_PUBLIC_NOTION_OAUTH_CLIENT_ID=<client-id>
 NOTION_OAUTH_CLIENT_SECRET=<client-secret>
 REDIRECT_URL=<client-redirect-url>
 ```
@@ -60,7 +60,7 @@ Notion will redirect to the redirect_uri with different url parameters for the d
 - [Notion Auth API](https://developers.notion.com/reference/create-a-token)
 
 ```ts
-const clientId = NOTION_OAUTH_CLIENT_ID;
+const clientId = NEXT_PUBLIC_NOTION_OAUTH_CLIENT_ID;
 const clientSecret = NOTION_OAUTH_CLIENT_SECRET;
 const redirectUri = REDIRECT_URL;
 
