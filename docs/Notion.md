@@ -232,4 +232,28 @@ Since it could that user access no pages for Us, or select some pages which NOT 
 
 And Notion requires the `parent.page_id` when create new pages. So we have to ask user to provide at least one available page for our Integration.
 
-### 4.
+### 4. The SaveNotion Component at right_top of message box.
+
+#### 4.1 Check the Notion is ready for user to save
+
+- No token -> jump to Notion Integration install page
+- No available page -> jump to `3. Require available page`
+
+#### 4.2 Save Notion
+
+##### How to store the content? things are better organized in Notion
+
+- Append the content into the Root Page directly
+- Create Page (per conversation) under the Root Page. (Like case1 in demo video)
+- 1.Create a Database under the Root Page 2. Cerate new page under the Database (Like case2 in demo video)
+
+##### How to optimize the user experience?
+
+- remember the last save rule
+- there will be `${input}(new page)` at the top of the list when there is no exact same title page. user click it we will create the new page and store the content in it.
+
+## Demo
+
+- [https://all-demos-topaz.vercel.app/notion](https://all-demos-topaz.vercel.app/notion)
+
+- [Demo Code](https://github.com/Yrobot/all-demos/blob/main/src/app/notion/page.tsx)
