@@ -5,6 +5,7 @@ import {
   REDIRECT_URL,
 } from "@/env";
 import { Client } from "@notionhq/client";
+const isRemoved = (item: any) => item?.archived || item?.in_trash;
 
 const notionFetch = async (
   url: string,
@@ -126,6 +127,7 @@ export const getAllPages = async ({
   });
   console.log(response);
   const pages: Page[] = (response?.results ?? [])
+    .filter((item: any) => !isRemoved(item))
     .map((result: any) => ({
       id: result?.id,
       parent: result.parent as Parent,
@@ -147,7 +149,10 @@ export const getRootDatabase = async (token: string) =>
   getAllDataBases({
     token,
     search: rootDBTitle,
-  }).then((dbs) => dbs[0]);
+  }).then((dbs) => {
+    console.log(dbs);
+    return dbs[0];
+  });
 
 export const createRootDB = async (token: string) => {
   if (!token) throw new Error("token is required");
@@ -190,13 +195,13 @@ export const getAllDataBases = async ({
     body: {
       query: search,
       filter: {
-        property: "object",
         value: "database",
+        property: "object",
       },
     },
   });
   // console.log(response);
-  return response?.results ?? [];
+  return (response?.results ?? []).filter((item: any) => !isRemoved(item));
 };
 
 export const createPage = async ({

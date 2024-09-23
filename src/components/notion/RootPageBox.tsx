@@ -42,7 +42,8 @@ function RootPageBox({ token }: { token: string }) {
         toast.success("Pages created");
         setSeed((old) => old + 1);
       },
-      onError: () => {
+      onError: (err) => {
+        console.log(err);
         toast.error("Pages create Fail");
       },
     }
@@ -63,7 +64,7 @@ function RootPageBox({ token }: { token: string }) {
           onClick={createPages}
           disabled={createLoading || !rootPage?.id}
         >
-          {createLoading ? "Creating" : "Create"}
+          {createLoading ? "Creating" : "Create Pages in Page"}
         </button>
       </div>
     </div>

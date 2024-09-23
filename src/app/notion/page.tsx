@@ -22,11 +22,13 @@ export default function Page() {
       {token && (
         <>
           <RootPage token={token} onRootId={setRootId} />
-          <div className="max-w-[1440px] mx-auto grid grid-cols-3 gap-8">
-            <PageList token={token} />
-            <RootPageBox token={token} />
-            <RootDBBox token={token} />
-          </div>
+          {rootId && (
+            <div className="max-w-[1440px] mx-auto grid grid-cols-3 gap-8">
+              <PageList token={token} />
+              <RootPageBox token={token} />
+              <RootDBBox token={token} />
+            </div>
+          )}
         </>
       )}
     </div>

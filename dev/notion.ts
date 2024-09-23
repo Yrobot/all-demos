@@ -307,13 +307,5 @@ const appendDemo = async () => {
 };
 
 (async () => {
-  for (let i = 0; i < 4; i++) {
-    await createNewPage({
-      title: `Conversation ${i}`,
-      content: `AI response content.`,
-      parent: {
-        page_id: rootPageId,
-      },
-    });
-  }
+  
 })().catch(console.error);
