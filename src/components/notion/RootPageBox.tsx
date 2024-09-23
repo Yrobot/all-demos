@@ -10,11 +10,16 @@ function RootPageBox({ token }: { token: string }) {
     async () => getRootPage(token),
     {}
   );
+  useEffect(() => {
+    setSeed((old) => old + 1);
+  }, []);
   const titleList = useMemo(
     () =>
-      [...Array(3)].map(
-        () => `Conversation ${Math.floor((1000 * Math.random()) % 1000)}`
-      ),
+      seed === 0
+        ? []
+        : [...Array(3)].map(
+            () => `Conversation ${Math.floor((1000 * Math.random()) % 1000)}`
+          ),
     [seed]
   );
 
@@ -35,7 +40,7 @@ function RootPageBox({ token }: { token: string }) {
       manual: true,
       onSuccess: () => {
         toast.success("Pages created");
-        setSeed(seed + 1);
+        setSeed((old) => old + 1);
       },
       onError: () => {
         toast.error("Pages create Fail");

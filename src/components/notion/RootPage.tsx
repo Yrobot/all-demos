@@ -16,7 +16,10 @@ function RootPage({
       onRootId?.(root?.id || "");
     });
   }, []);
-  if (!root) return null;
+  if (!root)
+    return (
+      <div className="">You have to create a Page named `Brainglue` first</div>
+    );
   return (
     <div className="">
       <span className="opacity-60 mr-2">{`Root Page (with title 'brainglue'):`}</span>

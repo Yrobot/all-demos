@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { createPage, getRootDatabase } from "@/service/notion";
 import { useRequest } from "ahooks";
 import toast from "react-hot-toast";
@@ -12,11 +12,16 @@ function RootDBBox({ token }: { token: string }) {
   );
   const titleList = useMemo(
     () =>
-      [...Array(3)].map(
-        () => `Conversation ${Math.floor((1000 * Math.random()) % 1000)}`
-      ),
+      seed === 0
+        ? []
+        : [...Array(3)].map(
+            () => `Conversation ${Math.floor((1000 * Math.random()) % 1000)}`
+          ),
     [seed]
   );
+  useEffect(() => {
+    setSeed((old) => old + 1);
+  }, []);
 
   const { loading: createLoading, run: createPages } = useRequest(
     async () =>
@@ -35,7 +40,7 @@ function RootDBBox({ token }: { token: string }) {
       manual: true,
       onSuccess: () => {
         toast.success("Pages created");
-        setSeed(seed + 1);
+        setSeed((old) => old + 1);
       },
       onError: () => {
         toast.error("Pages create Fail");
