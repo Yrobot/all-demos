@@ -11,7 +11,7 @@ const clientId = NOTION_OAUTH_CLIENT_ID;
 const clientSecret = NOTION_OAUTH_CLIENT_SECRET;
 const redirectUri = REDIRECT_URL;
 
-const token = "secret_PhoA3XY663F5uVdHZ6aYhv2rsjwuxhFFCFVSBBDSgqM";
+const token = process.env.NOTION_RB_TOKEN;
 
 const workspace_id = "c2a78f13-327d-430a-99c6-7242b579d51b"; // get from /v1/oauth/token response
 
