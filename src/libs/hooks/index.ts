@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 export const useLocalStorageState = <T>(
   key: string,
@@ -7,17 +7,27 @@ export const useLocalStorageState = <T>(
     defaultValue?: T;
   }
 ) => {
-  const [state, setState] = useState<T | null>(null);
+  const [state, _setState] = useState<T | null>(null);
   useEffect(() => {
     const data = localStorage.getItem(key);
     if (data !== null) {
-      setState(JSON.parse(data) as T);
+      _setState(JSON.parse(data) as T);
     } else if (options?.defaultValue !== undefined) {
-      setState(options?.defaultValue);
+      _setState(options?.defaultValue);
     }
   }, []);
-  return [state, setState] as [
-    T | null,
-    React.Dispatch<React.SetStateAction<T | null>>
-  ];
+
+  const setState = useCallback(
+    (value: T | null) => {
+      _setState(value);
+      if (value === null) {
+        localStorage.removeItem(key);
+      } else {
+        localStorage.setItem(key, JSON.stringify(value));
+      }
+    },
+    [_setState]
+  );
+
+  return [state, setState] as [T | null, (value: T | null) => void];
 };

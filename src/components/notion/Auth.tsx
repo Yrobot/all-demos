@@ -25,6 +25,8 @@ function Auth({
         redirect_uri: REDIRECT_URL,
       })}
       className="btn btn-neutral"
+      target="_blank"
+      rel="noreferrer"
     >
       {children}
     </a>

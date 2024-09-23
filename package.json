@@ -10,12 +10,14 @@
   },
   "dependencies": {
     "@notionhq/client": "^2.2.15",
+    "@tryfabric/martian": "^1.2.4",
     "ahooks": "^3.8.1",
     "daisyui": "^4.12.10",
     "mitt": "^3.0.1",
     "next": "14.2.11",
     "react": "^18",
-    "react-dom": "^18"
+    "react-dom": "^18",
+    "react-hot-toast": "^2.4.1"
   },
   "devDependencies": {
     "typescript": "^5",
