@@ -46,7 +46,7 @@ import {
   forceManyBody as d3ForceManyBody,
   forceCenter as d3ForceCenter,
   forceRadial as d3ForceRadial
-} from 'd3-force-3d';
+} from '@/libs/d3-force-3d';
 
 import graph from 'ngraph.graph';
 import forcelayout from 'ngraph.forcelayout';
