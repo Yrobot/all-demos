@@ -11,8 +11,10 @@
   "dependencies": {
     "@notionhq/client": "^2.2.15",
     "@tryfabric/martian": "^1.2.4",
+    "@types/d3": "^7.4.3",
     "accessor-fn": "^1.5.1",
     "ahooks": "^3.8.1",
+    "d3": "^7.9.0",
     "d3-array": "^3.2.4",
     "d3-binarytree": "^1.0.2",
     "d3-dispatch": "^3.0.1",
