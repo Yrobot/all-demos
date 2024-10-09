@@ -2,7 +2,7 @@ import * as three from "three";
 
 import { DragControls as ThreeDragControls } from "three/examples/jsm/controls/DragControls.js";
 
-import ThreeForceGraph from "three-forcegraph";
+import ThreeForceGraph from "@/libs/three-forcegraph";
 import ThreeRenderObjects from "three-render-objects";
 
 import accessorFn from "accessor-fn";
