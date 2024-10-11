@@ -1,6 +1,5 @@
 "use client";
 import React, { useEffect } from "react";
-import ForceGraph3D from "@/libs/force-graph";
 
 import force3d from "./force-3d";
 
@@ -121,7 +120,7 @@ function View() {
   useEffect(() => {
     document.getElementById(ID)?.appendChild(
       force3d({
-        graphData,
+        graphData: data,
       })
     );
   }, []);
