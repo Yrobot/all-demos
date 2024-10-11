@@ -595,6 +595,187 @@ const initScene = ({
   // });
 };
 
+const levelTick = ({ state, data }) => {
+  const layout = data.layout;
+  if (!layout) return;
+
+  if (
+    ++state.cntTicks > state.cooldownTicks ||
+    new Date() - state.startTickTime > state.cooldownTime ||
+    state.d3AlphaMin > 0
+  ) {
+    state.engineRunning = false; // Stop ticking graph
+    state.onEngineStop();
+  } else {
+    state.layout["tick"](); // Tick it
+    state.onEngineTick();
+  }
+
+  const nodeThreeObjectExtendAccessor = accessorFn(state.nodeThreeObjectExtend);
+
+  // Update nodes position
+  data.nodes.forEach((node) => {
+    const obj = node.__threeObj;
+    if (!obj) return;
+
+    const pos = node;
+
+    const extendedObj = nodeThreeObjectExtendAccessor(node);
+    if (
+      !state.nodePositionUpdate ||
+      !state.nodePositionUpdate(
+        extendedObj ? obj.children[0] : obj,
+        { x: pos.x, y: pos.y, z: pos.z },
+        node
+      ) || // pass child custom object if extending the default
+      extendedObj
+    ) {
+      obj.position.x = pos.x;
+      obj.position.y = pos.y || 0;
+      obj.position.z = pos.z || 0;
+    }
+  });
+
+  // Update links position
+  const linkWidthAccessor = accessorFn(state.linkWidth);
+  const linkCurvatureAccessor = accessorFn(state.linkCurvature);
+  const linkCurveRotationAccessor = accessorFn(state.linkCurveRotation);
+  const linkThreeObjectExtendAccessor = accessorFn(state.linkThreeObjectExtend);
+
+  data.links.forEach((link) => {
+    const lineObj = link.__lineObj;
+    if (!lineObj) return;
+
+    const pos = link;
+    const start = pos["source"];
+    const end = pos["target"];
+
+    if (
+      !start ||
+      !end ||
+      !start.hasOwnProperty("x") ||
+      !end.hasOwnProperty("x")
+    )
+      return; // skip invalid link
+
+    // calcLinkCurve(link); // calculate link curve for all links, including custom replaced, so it can be used in directional functionality
+
+    const extendedObj = linkThreeObjectExtendAccessor(link);
+    if (
+      state.linkPositionUpdate &&
+      state.linkPositionUpdate(
+        extendedObj ? lineObj.children[1] : lineObj, // pass child custom object if extending the default
+        {
+          start: { x: start.x, y: start.y, z: start.z },
+          end: { x: end.x, y: end.y, z: end.z },
+        },
+        link
+      ) &&
+      !extendedObj
+    ) {
+      // exit if successfully custom updated position of non-extended obj
+      return;
+    }
+
+    const curveResolution = 30; // # line segments
+    const curve = link.__curve;
+
+    // select default line obj if it's an extended group
+    const line = lineObj.children.length ? lineObj.children[0] : lineObj;
+
+    // default Line
+    if (line.type === "Line") {
+      // Update line geometry
+      if (!curve) {
+        // straight line
+        let linePos = line.geometry.getAttribute("position");
+        if (!linePos || !linePos.array || linePos.array.length !== 6) {
+          line.geometry[setAttributeFn](
+            "position",
+            (linePos = new three.BufferAttribute(new Float32Array(2 * 3), 3))
+          );
+        }
+
+        linePos.array[0] = start.x;
+        linePos.array[1] = start.y || 0;
+        linePos.array[2] = start.z || 0;
+        linePos.array[3] = end.x;
+        linePos.array[4] = end.y || 0;
+        linePos.array[5] = end.z || 0;
+
+        linePos.needsUpdate = true;
+      } else {
+        // bezier curve line
+        line.geometry.setFromPoints(curve.getPoints(curveResolution));
+      }
+      line.geometry.computeBoundingSphere();
+    } else if (line.type === "Mesh") {
+      // Update cylinder geometry
+
+      if (!curve) {
+        // straight tube
+        if (!line.geometry.type.match(/^Cylinder(Buffer)?Geometry$/)) {
+          const linkWidth = Math.ceil(linkWidthAccessor(link) * 10) / 10;
+          const r = linkWidth / 2;
+
+          const geometry = new three.CylinderGeometry(
+            r,
+            r,
+            1,
+            state.linkResolution,
+            1,
+            false
+          );
+          geometry[applyMatrix4Fn](
+            new three.Matrix4().makeTranslation(0, 1 / 2, 0)
+          );
+          geometry[applyMatrix4Fn](
+            new three.Matrix4().makeRotationX(Math.PI / 2)
+          );
+
+          line.geometry.dispose();
+          line.geometry = geometry;
+        }
+
+        const vStart = new three.Vector3(start.x, start.y || 0, start.z || 0);
+        const vEnd = new three.Vector3(end.x, end.y || 0, end.z || 0);
+        const distance = vStart.distanceTo(vEnd);
+
+        line.position.x = vStart.x;
+        line.position.y = vStart.y;
+        line.position.z = vStart.z;
+
+        line.scale.z = distance;
+
+        line.parent.localToWorld(vEnd); // lookAt requires world coords
+        line.lookAt(vEnd);
+      } else {
+        // curved tube
+        if (!line.geometry.type.match(/^Tube(Buffer)?Geometry$/)) {
+          // reset object positioning
+          line.position.set(0, 0, 0);
+          line.rotation.set(0, 0, 0);
+          line.scale.set(1, 1, 1);
+        }
+
+        const linkWidth = Math.ceil(linkWidthAccessor(link) * 10) / 10;
+        const r = linkWidth / 2;
+
+        const geometry = new three.TubeGeometry(
+          curve,
+          curveResolution,
+          r,
+          state.linkResolution,
+          false
+        );
+
+        line.geometry.dispose();
+        line.geometry = geometry;
+      }
+    }
+  });
+};
+
 // support multiple method names for backwards threejs compatibility
 const setAttributeFn = new three.BufferGeometry().setAttribute
   ? "setAttribute"
@@ -788,270 +969,10 @@ export default Kapsule({
       //
 
       function layoutTick() {
-        if (
-          ++state.cntTicks > state.cooldownTicks ||
-          new Date() - state.startTickTime > state.cooldownTime ||
-          state.d3AlphaMin > 0
-        ) {
-          state.engineRunning = false; // Stop ticking graph
-          state.onEngineStop();
-        } else {
-          state.layout["tick"](); // Tick it
-          state.onEngineTick();
-        }
-
-        const nodeThreeObjectExtendAccessor = accessorFn(
-          state.nodeThreeObjectExtend
-        );
-
-        // Update nodes position
-        state.graphData.nodes.forEach((node) => {
-          const obj = node.__threeObj;
-          if (!obj) return;
-
-          const pos = node;
-
-          const extendedObj = nodeThreeObjectExtendAccessor(node);
-          if (
-            !state.nodePositionUpdate ||
-            !state.nodePositionUpdate(
-              extendedObj ? obj.children[0] : obj,
-              { x: pos.x, y: pos.y, z: pos.z },
-              node
-            ) || // pass child custom object if extending the default
-            extendedObj
-          ) {
-            obj.position.x = pos.x;
-            obj.position.y = pos.y || 0;
-            obj.position.z = pos.z || 0;
-          }
+        levelTick({
+          state,
+          data: state.graphData,
         });
-
-        // Update links position
-        const linkWidthAccessor = accessorFn(state.linkWidth);
-        const linkCurvatureAccessor = accessorFn(state.linkCurvature);
-        const linkCurveRotationAccessor = accessorFn(state.linkCurveRotation);
-        const linkThreeObjectExtendAccessor = accessorFn(
-          state.linkThreeObjectExtend
-        );
-        state.graphData.links.forEach((link) => {
-          const lineObj = link.__lineObj;
-          if (!lineObj) return;
-
-          const pos = link;
-          const start = pos["source"];
-          const end = pos["target"];
-
-          if (
-            !start ||
-            !end ||
-            !start.hasOwnProperty("x") ||
-            !end.hasOwnProperty("x")
-          )
-            return; // skip invalid link
-
-          // calcLinkCurve(link); // calculate link curve for all links, including custom replaced, so it can be used in directional functionality
-
-          const extendedObj = linkThreeObjectExtendAccessor(link);
-          if (
-            state.linkPositionUpdate &&
-            state.linkPositionUpdate(
-              extendedObj ? lineObj.children[1] : lineObj, // pass child custom object if extending the default
-              {
-                start: { x: start.x, y: start.y, z: start.z },
-                end: { x: end.x, y: end.y, z: end.z },
-              },
-              link
-            ) &&
-            !extendedObj
-          ) {
-            // exit if successfully custom updated position of non-extended obj
-            return;
-          }
-
-          const curveResolution = 30; // # line segments
-          const curve = link.__curve;
-
-          // select default line obj if it's an extended group
-          const line = lineObj.children.length ? lineObj.children[0] : lineObj;
-
-          // default Line
-          if (line.type === "Line") {
-            // Update line geometry
-            if (!curve) {
-              // straight line
-              let linePos = line.geometry.getAttribute("position");
-              if (!linePos || !linePos.array || linePos.array.length !== 6) {
-                line.geometry[setAttributeFn](
-                  "position",
-                  (linePos = new three.BufferAttribute(
-                    new Float32Array(2 * 3),
-                    3
-                  ))
-                );
-              }
-
-              linePos.array[0] = start.x;
-              linePos.array[1] = start.y || 0;
-              linePos.array[2] = start.z || 0;
-              linePos.array[3] = end.x;
-              linePos.array[4] = end.y || 0;
-              linePos.array[5] = end.z || 0;
-
-              linePos.needsUpdate = true;
-            } else {
-              // bezier curve line
-              line.geometry.setFromPoints(curve.getPoints(curveResolution));
-            }
-            line.geometry.computeBoundingSphere();
-          } else if (line.type === "Mesh") {
-            // Update cylinder geometry
-
-            if (!curve) {
-              // straight tube
-              if (!line.geometry.type.match(/^Cylinder(Buffer)?Geometry$/)) {
-                const linkWidth = Math.ceil(linkWidthAccessor(link) * 10) / 10;
-                const r = linkWidth / 2;
-
-                const geometry = new three.CylinderGeometry(
-                  r,
-                  r,
-                  1,
-                  state.linkResolution,
-                  1,
-                  false
-                );
-                geometry[applyMatrix4Fn](
-                  new three.Matrix4().makeTranslation(0, 1 / 2, 0)
-                );
-                geometry[applyMatrix4Fn](
-                  new three.Matrix4().makeRotationX(Math.PI / 2)
-                );
-
-                line.geometry.dispose();
-                line.geometry = geometry;
-              }
-
-              const vStart = new three.Vector3(
-                start.x,
-                start.y || 0,
-                start.z || 0
-              );
-              const vEnd = new three.Vector3(end.x, end.y || 0, end.z || 0);
-              const distance = vStart.distanceTo(vEnd);
-
-              line.position.x = vStart.x;
-              line.position.y = vStart.y;
-              line.position.z = vStart.z;
-
-              line.scale.z = distance;
-
-              line.parent.localToWorld(vEnd); // lookAt requires world coords
-              line.lookAt(vEnd);
-            } else {
-              // curved tube
-              if (!line.geometry.type.match(/^Tube(Buffer)?Geometry$/)) {
-                // reset object positioning
-                line.position.set(0, 0, 0);
-                line.rotation.set(0, 0, 0);
-                line.scale.set(1, 1, 1);
-              }
-
-              const linkWidth = Math.ceil(linkWidthAccessor(link) * 10) / 10;
-              const r = linkWidth / 2;
-
-              const geometry = new three.TubeGeometry(
-                curve,
-                curveResolution,
-                r,
-                state.linkResolution,
-                false
-              );
-
-              line.geometry.dispose();
-              line.geometry = geometry;
-            }
-          }
-        });
-
-        //
-
-        function calcLinkCurve(link) {
-          const pos = link;
-          const start = pos["source"];
-          const end = pos["target"];
-
-          if (
-            !start ||
-            !end ||
-            !start.hasOwnProperty("x") ||
-            !end.hasOwnProperty("x")
-          )
-            return; // skip invalid link
-
-          const curvature = linkCurvatureAccessor(link);
-
-          if (!curvature) {
-            link.__curve = null; // Straight line
-          } else {
-            // bezier curve line (only for line types)
-            const vStart = new three.Vector3(
-              start.x,
-              start.y || 0,
-              start.z || 0
-            );
-            const vEnd = new three.Vector3(end.x, end.y || 0, end.z || 0);
-
-            const l = vStart.distanceTo(vEnd); // line length
-
-            let curve;
-            const curveRotation = linkCurveRotationAccessor(link);
-
-            if (l > 0) {
-              const dx = end.x - start.x;
-              const dy = end.y - start.y || 0;
-
-              const vLine = new three.Vector3().subVectors(vEnd, vStart);
-
-              const cp = vLine
-                .clone()
-                .multiplyScalar(curvature)
-                .cross(
-                  dx !== 0 || dy !== 0
-                    ? new three.Vector3(0, 0, 1)
-                    : new three.Vector3(0, 1, 0)
-                ) // avoid cross-product of parallel vectors (prefer Z, fallback to Y)
-                .applyAxisAngle(vLine.normalize(), curveRotation) // rotate along line axis according to linkCurveRotation
-                .add(
-                  new three.Vector3().addVectors(vStart, vEnd).divideScalar(2)
-                );
-
-              curve = new three.QuadraticBezierCurve3(vStart, cp, vEnd);
-            } else {
-              // Same point, draw a loop
-              const d = curvature * 70;
-              const endAngle = -curveRotation; // Rotate clockwise (from Z angle perspective)
-              const startAngle = endAngle + Math.PI / 2;
-
-              curve = new three.CubicBezierCurve3(
-                vStart,
-                new three.Vector3(
-                  d * Math.cos(startAngle),
-                  d * Math.sin(startAngle),
-                  0
-                ).add(vStart),
-                new three.Vector3(
-                  d * Math.cos(endAngle),
-                  d * Math.sin(endAngle),
-                  0
-                ).add(vStart),
-                vEnd
-              );
-            }
-
-            link.__curve = curve;
-          }
-        }
       }
 
       function updateArrows() {
