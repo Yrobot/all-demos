@@ -61,6 +61,8 @@ import {
   colorAlpha,
 } from "./utils/color-utils";
 
+const OPEN_LOOP = true;
+
 const initScene = ({
   hasAnyPropChanged,
   state,
@@ -582,17 +584,17 @@ const initScene = ({
   }
 
   // loop
-  // data?.nodes?.forEach((node) => {
-  //   if (!!node?.children) {
-  //     // console.log(node?.children);
-  //     initScene({
-  //       hasAnyPropChanged,
-  //       state,
-  //       data: node.children,
-  //       changedProps,
-  //     });
-  //   }
-  // });
+  if (OPEN_LOOP)
+    data?.nodes?.forEach((node) => {
+      if (!!node?.children) {
+        initScene({
+          hasAnyPropChanged,
+          state,
+          data: node.children,
+          changedProps,
+        });
+      }
+    });
 };
 
 const levelTick = ({ state, data }) => {
@@ -607,7 +609,7 @@ const levelTick = ({ state, data }) => {
     state.engineRunning = false; // Stop ticking graph
     state.onEngineStop();
   } else {
-    state.layout["tick"](); // Tick it
+    layout["tick"](); // Tick it
     state.onEngineTick();
   }
 
@@ -774,6 +776,17 @@ const levelTick = ({ state, data }) => {
       }
     }
   });
+
+  // loop
+  if (OPEN_LOOP)
+    data?.nodes?.forEach((node) => {
+      if (!!node?.children) {
+        levelTick({
+          state,
+          data: node.children,
+        });
+      }
+    });
 };
 
 // support multiple method names for backwards threejs compatibility
