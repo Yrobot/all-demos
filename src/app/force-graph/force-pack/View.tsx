@@ -125,7 +125,25 @@ const graphData = {
 };
 
 function View() {
-  return <ForceGraph3D graphData={graphData} />;
+  return (
+    <ForceGraph3D
+      graphData={graphData}
+      showNavInfo={false}
+      backgroundColor="#12151D"
+      nodeLabel={(node) => node.id}
+      nodeResolution={24}
+      nodeRelSize={6}
+      nodeOpacity={0.6}
+      nodeThreeObjectExtend
+      linkColor="#05B4A2"
+      linkOpacity={0.5}
+      // linkCurvature={0.1}
+      // linkDirectionalParticleWidth={1}
+      // linkDirectionalParticleColor="#05B4A2"
+      // linkDirectionalArrowColor="#05B4A2"
+      // linkDirectionalArrowRelPos={1}
+    />
+  );
 }
 
 export default View;

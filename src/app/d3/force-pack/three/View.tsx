@@ -245,7 +245,7 @@ const drawLevelForce = (
   const color = getColor(level);
 
   const linkObjArr = data.links.map((link) => {
-    const linkObj = createLinkObject({ color });
+    const linkObj = createLinkObject({ color, opacity: 0.2 });
     container.add(linkObj);
     return linkObj;
   });
@@ -259,6 +259,22 @@ const drawLevelForce = (
     });
     container.add(nodeObj);
     return nodeObj;
+  });
+
+  const dataKey = "__child_group";
+
+  data.nodes.forEach(function (node, i) {
+    if (node.children) {
+      const nodeObj = nodeObjArr[i];
+      const group = new THREE.Group();
+      container.add(group);
+      (nodeObj as any)["dataKey"] = group;
+      drawLevelForce(node.children, group, {
+        level: level + 1,
+        containerRadius: radius,
+        center: getNodePosition(node as NodePos),
+      });
+    }
   });
 
   simulation.on("tick", () => {
@@ -275,23 +291,20 @@ const drawLevelForce = (
     });
     nodeObjArr.forEach((nodeObj, i) => {
       const node = data.nodes[i];
-      nodeObj.position.x = node.x || 0;
-      nodeObj.position.y = node.y || 0;
-      nodeObj.position.z = 0;
+      const x = node.x || 0;
+      const y = node.y || 0;
+      const z = 0;
+      nodeObj.position.x = x;
+      nodeObj.position.y = y;
+      nodeObj.position.z = z;
+      const childGroup: THREE.Group = (nodeObj as any)["dataKey"];
+      if (!!childGroup) {
+        childGroup.position.x = x;
+        childGroup.position.y = y;
+        childGroup.position.z = z;
+      }
     });
   });
-
-  // data.nodes.forEach(function (node) {
-  //   if (node.children) {
-  //     const group = new THREE.Group();
-  //     container.add(group);
-  //     drawLevelForce(node.children, group, {
-  //       level: level + 1,
-  //       containerRadius: radius,
-  //       center: getNodePosition(node as NodePos),
-  //     });
-  //   }
-  // });
 };
 
 const main = (data: Main) => {
@@ -306,11 +319,16 @@ const main = (data: Main) => {
   const renderer = new THREE.WebGLRenderer();
   renderer.setSize(width, height);
 
-  const ambientLight = new THREE.AmbientLight(0x404040);
-  scene.add(ambientLight);
-  const pointLight = new THREE.PointLight(0xffffff, 1, 0);
-  pointLight.position.set(10, 10, 10);
-  scene.add(pointLight);
+  // const ambientLight = new THREE.AmbientLight(0x404040);
+  // scene.add(ambientLight);
+  // const pointLight = new THREE.PointLight(0xffffff, 1, 0);
+  // pointLight.position.set(10, 10, 10);
+  // scene.add(pointLight);
+
+  [
+    new THREE.AmbientLight(0x404040),
+    new THREE.PointLight(0xffffff, 1, 0),
+  ].forEach((light) => scene.add(light));
 
   // Add controls
   const controls = new OrbitControls(camera, renderer.domElement);
