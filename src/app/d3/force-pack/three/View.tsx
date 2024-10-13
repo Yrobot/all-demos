@@ -2,6 +2,7 @@
 import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { DragControls } from "three/addons/controls/DragControls.js";
 import * as d3 from "d3";
 
 type NodePos = { x: number; y: number; z: number };
@@ -223,15 +224,17 @@ const drawLevelForce = (
     )
     .force("charge", d3.forceManyBody().strength(-50))
     .force("center", d3.forceCenter(center[0], center[1]))
+    .force("collide", d3.forceCollide(radius))
     .force("circularConstraint", (alpha) => {
       if (level === 0) return;
       const padding = 10;
       nodes.forEach((node, i) => {
         const dx = node.x! - center[0];
         const dy = node.y! - center[1];
+        const dz = 0;
         // const dz = node.z! - center[2];
         // const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-        const distance = Math.sqrt(dx * dx + dy * dy);
+        const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
         const max = containerRadius - padding - radius;
         if (distance > max) {
           const scale = max / distance;
@@ -261,14 +264,14 @@ const drawLevelForce = (
     return nodeObj;
   });
 
-  const dataKey = "__child_group";
+  const childGroupKey = "__child_group";
 
   data.nodes.forEach(function (node, i) {
     if (node.children) {
       const nodeObj = nodeObjArr[i];
       const group = new THREE.Group();
       container.add(group);
-      (nodeObj as any)["dataKey"] = group;
+      (nodeObj as any)[childGroupKey] = group;
       drawLevelForce(node.children, group, {
         level: level + 1,
         containerRadius: radius,
@@ -297,7 +300,7 @@ const drawLevelForce = (
       nodeObj.position.x = x;
       nodeObj.position.y = y;
       nodeObj.position.z = z;
-      const childGroup: THREE.Group = (nodeObj as any)["dataKey"];
+      const childGroup: THREE.Group = (nodeObj as any)[childGroupKey];
       if (!!childGroup) {
         childGroup.position.x = x;
         childGroup.position.y = y;
