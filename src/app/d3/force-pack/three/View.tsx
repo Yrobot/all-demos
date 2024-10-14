@@ -4,64 +4,19 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { DragControls } from "three/addons/controls/DragControls.js";
 import * as d3 from "d3";
-
-type NodePos = { x: number; y: number; z: number };
-
-const getColor = (i: number) => hexToThreeColor(d3.schemeCategory10[i]);
-
-const hexToThreeColor = (hex: string) => {
-  const r = parseInt(hex.substring(1, 3), 16);
-  const g = parseInt(hex.substring(3, 5), 16);
-  const b = parseInt(hex.substring(5, 7), 16);
-  return new THREE.Color(r, g, b);
-};
-
-// Function to create a link object
-const createLinkObject = ({
-  color,
-  opacity = 1,
-}: {
-  color: THREE.Color;
-  opacity?: number;
-}) => {
-  const geometry = new THREE.BufferGeometry();
-  const material = new THREE.LineBasicMaterial({
-    color,
-    opacity,
-    transparent: opacity < 1,
-    depthWrite: opacity >= 1,
-  });
-  return new THREE.Line(geometry, material);
-};
-
-// Function to create a node object
-const createNodeObject = ({
-  color,
-  node,
-  radius = 5,
-  nodeResolution = 16,
-  opacity = 1,
-}: {
-  color: THREE.Color;
-  node: Node;
-  radius: number;
-  nodeResolution?: number;
-  opacity?: number;
-}) => {
-  const geometry = new THREE.SphereGeometry(
-    radius,
-    nodeResolution,
-    nodeResolution
-  );
-  const material = new THREE.MeshLambertMaterial({
-    color,
-    opacity,
-    transparent: opacity < 1,
-    depthWrite: opacity >= 1,
-  });
-  const sphere = new THREE.Mesh(geometry, material);
-  return sphere;
-};
+import {
+  NodePos,
+  NodeGen,
+  LinkGen,
+  getNodePosition,
+  hexToThreeColor,
+  updateLinkObjPosition,
+  createLinkObject,
+  createNodeObject,
+  getAllChildLength,
+  nodeRadiusScale,
+  getThreeColor,
+} from "@/libs/three-utils";
 
 const graphData = {
   nodes: [
@@ -122,77 +77,13 @@ const graphData = {
   ],
 };
 
-type Node = {
-  id: string;
-  children?: Main;
-} & {
-  index?: number;
-  x?: number;
-  y?: number;
-  z?: number;
-  vx?: number;
-  vy?: number;
-  vz?: number;
-  fx?: number | null;
-  fy?: number | null;
-  fz?: number | null;
-};
-
-type Link = d3.SimulationLinkDatum<Node>;
+type Node = NodeGen<NodeExt>;
+type Link = LinkGen<NodeExt>;
 
 type Main = { nodes: Node[]; links: Link[] };
 
-const getAllChildLength = (node: Node): number => {
-  if (node?.children?.nodes?.length) {
-    return (
-      node.children.nodes.length +
-      node.children.nodes.reduce((pre, cur) => pre + getAllChildLength(cur), 0)
-    );
-  } else {
-    return 0;
-  }
-};
-
-const nodeRadiusScale = d3.scaleSqrt().domain([1, 2]).range([20, 80]);
-
-type Position = [number, number, number];
-
-const getNodePosition = (node: NodePos): Position => [
-  node.x || 0,
-  node.y || 0,
-  node.z || 0,
-];
-
-const updateLinkObjPosition = (
-  linkObj: THREE.Line,
-  startPos: Position,
-  endPos: Position
-) => {
-  if (!(linkObj.geometry instanceof THREE.BufferGeometry)) {
-    console.error("Line geometry is not an instance of BufferGeometry");
-    return;
-  }
-  const start = new THREE.Vector3(...startPos);
-  const end = new THREE.Vector3(...endPos);
-
-  // 创建一个新的 Float32Array 来存储位置数据
-  const positions = new Float32Array([
-    start.x,
-    start.y,
-    start.z,
-    end.x,
-    end.y,
-    end.z,
-  ]);
-
-  linkObj.geometry.setAttribute(
-    "position",
-    new THREE.BufferAttribute(positions, 3)
-  );
-
-  // 确保 Three.js 知道需要更新这个对象
-  linkObj.geometry.computeBoundingSphere();
-  // linkObj.geometry.attributes.position.needsUpdate = true;
+type NodeExt = {
+  children?: Main;
 };
 
 const drawLevelForce = (
@@ -202,10 +93,12 @@ const drawLevelForce = (
     level = 0,
     center = [0, 0, 0],
     containerRadius,
+    listenDrag,
   }: {
     level: number;
     center?: [number, number, number];
     containerRadius: number;
+    listenDrag: (objects: THREE.Object3D[]) => void;
   }
 ) => {
   const { nodes, links } = data;
@@ -245,7 +138,7 @@ const drawLevelForce = (
       });
     });
 
-  const color = getColor(level);
+  const color = getThreeColor(level);
 
   const linkObjArr = data.links.map((link) => {
     const linkObj = createLinkObject({ color, opacity: 0.2 });
@@ -256,13 +149,15 @@ const drawLevelForce = (
   const nodeObjArr = data.nodes.map((node) => {
     const nodeObj = createNodeObject({
       color,
-      node,
+      // node,
       radius,
       opacity: !!level ? 1 : 0.6,
     });
     container.add(nodeObj);
     return nodeObj;
   });
+
+  listenDrag(nodeObjArr);
 
   const childGroupKey = "__child_group";
 
@@ -276,6 +171,7 @@ const drawLevelForce = (
         level: level + 1,
         containerRadius: radius,
         center: getNodePosition(node as NodePos),
+        listenDrag,
       });
     }
   });
@@ -334,10 +230,30 @@ const main = (data: Main) => {
   ].forEach((light) => scene.add(light));
 
   // Add controls
-  const controls = new OrbitControls(camera, renderer.domElement);
-  controls.enableDamping = true;
-  controls.dampingFactor = 0.25;
-  controls.enableZoom = true;
+  const orbitControl = new OrbitControls(camera, renderer.domElement);
+  orbitControl.enableDamping = true;
+  orbitControl.dampingFactor = 0.25;
+  orbitControl.enableZoom = true;
+
+  const dragObjects: THREE.Object3D[] = [];
+  const dragControl = new DragControls(
+    dragObjects,
+    camera,
+    renderer.domElement
+  );
+  dragControl.addEventListener("dragstart", function (event) {
+    orbitControl.enabled = false; // Disable controls while dragging
+    // event.object.material.color.set("crimson");
+  });
+  dragControl.addEventListener("dragend", function (event) {
+    orbitControl.enabled = true; // Re-enable controls
+    // event.object.material.color.set("tan");
+  });
+
+  // Drag control listener
+  const listenDrag = (objects: THREE.Object3D[]) => {
+    dragObjects.push(...objects);
+  };
 
   const group = new THREE.Group();
   scene.add(group);
@@ -345,11 +261,12 @@ const main = (data: Main) => {
     level: 0,
     containerRadius: Math.min(width, height) / 2,
     center: [0, 0, 0],
+    listenDrag,
   });
 
   const animate = () => {
     requestAnimationFrame(animate);
-    controls.update();
+    orbitControl.update();
     renderer.render(scene, camera);
   };
   animate();
