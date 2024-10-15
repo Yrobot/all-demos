@@ -97,6 +97,13 @@ function View() {
       nodeColor={(node, level) => {
         return ["#219ebc", "#ffb703"][level];
       }}
+      onNodeHover={(node) => {
+        console.log(`onNodeHover [${node?.id}]`);
+      }}
+      onNodeClick={(node) => {
+        console.log(`onNodeClick [${node?.id}]`);
+        alert(`onNodeClick [${node?.id}]`);
+      }}
     />
   );
 }

@@ -478,6 +478,8 @@ export default Kapsule({
           : "";
       })
       .hoverDuringDrag(false)
+      .hoverFilter((obj) => parseInt(obj.__renderLevel) === state.displayLevel) // only listen the main level nodes and links
+      // .hoverOrderComparator((a, b) => b.__renderLevel - a.__renderLevel) // deeper level node has a higher priority
       .onHover((obj) => {
         // Update tooltip and trigger onHover events
         const hoverObj = getGraphObj(obj);
