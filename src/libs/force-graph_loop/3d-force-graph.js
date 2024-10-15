@@ -10,6 +10,30 @@ import Kapsule from "kapsule";
 
 import linkKapsule from "./kapsule-link.js";
 
+const loopData = (data, hook) => {
+  // return;
+  data?.nodes?.forEach((node) => {
+    if (node.children) {
+      hook(node.children, node);
+    }
+  });
+};
+
+const loopLevelNodes = (data, arr = [], level = 0, pickLevel = 0) => {
+  if (level === pickLevel) arr.push(...(data?.nodes || []));
+  if (level < pickLevel)
+    loopData(data, (node) => {
+      loopLevelNodes(node, arr, level + 1, pickLevel);
+    });
+};
+
+const getListenDragNodes = (state) => {
+  const displayLevel = state.displayLevel || 0;
+  const nodes = [];
+  loopLevelNodes(state.graphData, nodes, 0, displayLevel);
+  return nodes;
+};
+
 //
 
 const CAMERA_DISTANCE2NODES_FACTOR = 170;
@@ -279,11 +303,13 @@ export default Kapsule({
           state.enablePointerInteraction &&
           state.forceEngine === "d3"
         ) {
+          let dragObjs = getListenDragNodes(state)
+            .map((node) => node.__threeObj)
+            .filter((obj) => obj);
+          // let dragObjs = [];
           // Can't access node positions programmatically in ngraph
           const dragControls = (state._dragControls = new ThreeDragControls(
-            state.graphData.nodes
-              .map((node) => node.__threeObj)
-              .filter((obj) => obj),
+            dragObjs,
             camera,
             renderer.domElement
           ));
@@ -413,6 +439,13 @@ export default Kapsule({
             if (displayLevel !== state.displayLevel) {
               // console.log("displayLevel", state.displayLevel, displayLevel);
               this.displayLevel(displayLevel);
+              dragObjs.length = 0;
+              dragObjs.push(
+                ...getListenDragNodes(state)
+                  .map((node) => node.__threeObj)
+                  .filter((obj) => obj)
+              );
+              // console.log(dragObjs);
             }
           };
           controls.addEventListener("change", () => {
