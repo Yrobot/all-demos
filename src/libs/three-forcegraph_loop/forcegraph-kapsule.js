@@ -90,6 +90,7 @@ import {
   tickLevelLayout,
   triggerAllLayout,
   loopLevelDisplay,
+  loopLinkArrows,
 } from "./abstract";
 
 export default Kapsule({
@@ -308,7 +309,12 @@ export default Kapsule({
       if (state.engineRunning) {
         layoutTick();
       }
-      updateArrows();
+      loopLinkArrows({
+        data: state.graphData,
+        state,
+        isD3Sim,
+        level: 0,
+      });
       updatePhotons();
 
       return this;
@@ -336,91 +342,6 @@ export default Kapsule({
           data: state.graphData,
           state,
           isD3Sim,
-        });
-      }
-
-      function updateArrows() {
-        // update link arrow position
-        const arrowRelPosAccessor = accessorFn(
-          state.linkDirectionalArrowRelPos
-        );
-        const arrowLengthAccessor = accessorFn(
-          state.linkDirectionalArrowLength
-        );
-        const nodeValAccessor = accessorFn(state.nodeVal);
-
-        state.graphData.links.forEach((link) => {
-          const arrowObj = link.__arrowObj;
-          if (!arrowObj) return;
-
-          const pos = isD3Sim
-            ? link
-            : state.layout.getLinkPosition(
-                state.layout.graph.getLink(link.source, link.target).id
-              );
-          const start = pos[isD3Sim ? "source" : "from"];
-          const end = pos[isD3Sim ? "target" : "to"];
-
-          if (
-            !start ||
-            !end ||
-            !start.hasOwnProperty("x") ||
-            !end.hasOwnProperty("x")
-          )
-            return; // skip invalid link
-
-          const startR =
-            Math.cbrt(Math.max(0, nodeValAccessor(start) || 1)) *
-            state.nodeRelSize;
-          const endR =
-            Math.cbrt(Math.max(0, nodeValAccessor(end) || 1)) *
-            state.nodeRelSize;
-
-          const arrowLength = arrowLengthAccessor(link);
-          const arrowRelPos = arrowRelPosAccessor(link);
-
-          const getPosAlongLine = link.__curve
-            ? (t) => link.__curve.getPoint(t) // interpolate along bezier curve
-            : (t) => {
-                // straight line: interpolate linearly
-                const iplt = (dim, start, end, t) =>
-                  start[dim] + (end[dim] - start[dim]) * t || 0;
-                return {
-                  x: iplt("x", start, end, t),
-                  y: iplt("y", start, end, t),
-                  z: iplt("z", start, end, t),
-                };
-              };
-
-          const lineLen = link.__curve
-            ? link.__curve.getLength()
-            : Math.sqrt(
-                ["x", "y", "z"]
-                  .map((dim) =>
-                    Math.pow((end[dim] || 0) - (start[dim] || 0), 2)
-                  )
-                  .reduce((acc, v) => acc + v, 0)
-              );
-
-          const posAlongLine =
-            startR +
-            arrowLength +
-            (lineLen - startR - endR - arrowLength) * arrowRelPos;
-
-          const arrowHead = getPosAlongLine(posAlongLine / lineLen);
-          const arrowTail = getPosAlongLine(
-            (posAlongLine - arrowLength) / lineLen
-          );
-
-          ["x", "y", "z"].forEach(
-            (dim) => (arrowObj.position[dim] = arrowTail[dim])
-          );
-
-          const headVec = new three.Vector3(
-            ...["x", "y", "z"].map((c) => arrowHead[c])
-          );
-          arrowObj.parent.localToWorld(headVec); // lookAt requires world coords
-          arrowObj.lookAt(headVec);
         });
       }
 

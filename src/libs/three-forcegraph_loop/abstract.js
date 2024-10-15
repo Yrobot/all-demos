@@ -1123,3 +1123,101 @@ export const tickLevelLayout = ({
     });
   });
 };
+
+export const loopLinkArrows = ({ data, state, level = 0, isD3Sim = true }) => {
+  // update link arrow position
+  const arrowRelPosAccessor = accessorFn(state.linkDirectionalArrowRelPos);
+  const arrowLengthAccessor = accessorFn(state.linkDirectionalArrowLength);
+  const nodeValAccessor = accessorFn(state.nodeVal);
+
+  data.links.forEach((link) => {
+    const arrowObj = link.__arrowObj;
+    if (!arrowObj) return;
+
+    const pos = isD3Sim
+      ? link
+      : getLayout(data).getLinkPosition(
+          getLayout(data).graph?.getLink(link.source, link.target).id
+        );
+    const startNode = pos[isD3Sim ? "source" : "from"];
+    const endNode = pos[isD3Sim ? "target" : "to"];
+
+    if (
+      !startNode ||
+      !endNode ||
+      !startNode.hasOwnProperty("x") ||
+      !endNode.hasOwnProperty("x")
+    )
+      return; // skip invalid link
+
+    const radius = data.radius || MIN_RADIUS;
+
+    // get sphere intersection points as link start and end
+    const [start, end] = getSphereIntersectionPoints({
+      c1: [startNode.x, startNode.y, startNode.z],
+      c2: [endNode.x, endNode.y, endNode.z],
+      r1: radius,
+      r2: radius,
+    }).map(([x, y, z]) => ({
+      x,
+      y,
+      z,
+    }));
+
+    // const startR =
+    //   Math.cbrt(Math.max(0, nodeValAccessor(start) || 1)) * state.nodeRelSize;
+    // const endR =
+    //   Math.cbrt(Math.max(0, nodeValAccessor(end) || 1)) * state.nodeRelSize;
+    const startR = 0;
+    const endR = 0;
+
+    const arrowLength = arrowLengthAccessor(link);
+    const arrowRelPos = arrowRelPosAccessor(link);
+
+    const getPosAlongLine = link.__curve
+      ? (t) => link.__curve.getPoint(t) // interpolate along bezier curve
+      : (t) => {
+          // straight line: interpolate linearly
+          const iplt = (dim, start, end, t) =>
+            start[dim] + (end[dim] - start[dim]) * t || 0;
+          return {
+            x: iplt("x", start, end, t),
+            y: iplt("y", start, end, t),
+            z: iplt("z", start, end, t),
+          };
+        };
+
+    const lineLen = link.__curve
+      ? link.__curve.getLength()
+      : Math.sqrt(
+          ["x", "y", "z"]
+            .map((dim) => Math.pow((end[dim] || 0) - (start[dim] || 0), 2))
+            .reduce((acc, v) => acc + v, 0)
+        );
+
+    const posAlongLine =
+      startR +
+      arrowLength +
+      (lineLen - startR - endR - arrowLength) * arrowRelPos;
+
+    const arrowHead = getPosAlongLine(posAlongLine / lineLen);
+    const arrowTail = getPosAlongLine((posAlongLine - arrowLength) / lineLen);
+
+    ["x", "y", "z"].forEach((dim) => (arrowObj.position[dim] = arrowTail[dim]));
+
+    const headVec = new three.Vector3(
+      ...["x", "y", "z"].map((c) => arrowHead[c])
+    );
+    arrowObj.parent.localToWorld(headVec); // lookAt requires world coords
+    arrowObj.lookAt(headVec);
+  });
+
+  loopData(data, (node, parentNode) => {
+    loopLinkArrows({
+      data: node,
+      state,
+      isD3Sim,
+      level: level + 1,
+    });
+  });
+};
