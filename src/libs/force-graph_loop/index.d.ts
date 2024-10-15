@@ -83,7 +83,7 @@ export interface ForceGraphProps<NodeType = {}, LinkType = {}>
   nodeVal?: NodeAccessor<NodeType, number>;
   nodeLabel?: NodeAccessor<NodeType, string>;
   nodeVisibility?: NodeAccessor<NodeType, boolean>;
-  nodeColor?: NodeAccessor<NodeType, string>;
+  nodeColor?: string | ((obj: NodeType, level: number) => string);
   nodeAutoColorBy?: NodeAccessor<NodeType, string | null>;
   nodeOpacity?: number;
   nodeResolution?: number;

@@ -94,6 +94,9 @@ function View() {
       linkDirectionalParticleWidth={() => 1}
       linkDirectionalParticles={(link) => 8}
       linkDirectionalArrowRelPos={() => 1}
+      nodeColor={(node, level) => {
+        return ["#219ebc", "#ffb703"][level];
+      }}
     />
   );
 }

@@ -191,7 +191,7 @@ export const loopLevelScene = ({
           }
 
           const materialColor = new three.Color(
-            colorStr2Hex(color || "#ffffaa")
+            colorStr2Hex(colorAccessor(node, level) || color || "#ffffaa")
           );
           // const opacity = state.nodeOpacity * colorAlpha(color);
 
@@ -372,8 +372,7 @@ export const loopLevelScene = ({
           if (customMaterial) {
             obj.material = customMaterial;
           } else {
-            // const color = colorAccessor(link);
-            const color = linkColor;
+            const color = colorAccessor(link, level) || linkColor;
             const materialColor = new three.Color(
               colorStr2Hex(color || "#f0f0f0")
             );
