@@ -53,6 +53,39 @@ export const setGroupCenter = (group: THREE.Group, center: Position) => {
   group.position.z = center[2];
 };
 
+export function getSphereIntersectionPoints({
+  c1,
+  c2,
+  r1,
+  r2,
+}: {
+  c1: Position;
+  c2: Position;
+  r1: number;
+  r2: number;
+}): [Position, Position] {
+  // 计算从 c1 到 c2 的向量
+  const dx = c2[0] - c1[0];
+  const dy = c2[1] - c1[1];
+  const dz = c2[2] - c1[2];
+
+  // 计算向量长度（两个圆心之间的距离）
+  const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+  // 计算单位向量
+  const ux = dx / distance;
+  const uy = dy / distance;
+  const uz = dz / distance;
+
+  // 计算第一个球体表面的交点
+  const p1: Position = [c1[0] + ux * r1, c1[1] + uy * r1, c1[2] + uz * r1];
+
+  // 计算第二个球体表面的交点
+  const p2: Position = [c2[0] - ux * r2, c2[1] - uy * r2, c2[2] - uz * r2];
+
+  return [p1, p2];
+}
+
 export const hexToThreeColor = (hex: string) => {
   const r = parseInt(hex.substring(1, 3), 16);
   const g = parseInt(hex.substring(3, 5), 16);

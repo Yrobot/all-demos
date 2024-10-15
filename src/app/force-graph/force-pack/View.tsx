@@ -88,10 +88,12 @@ function View() {
       linkColor="#05B4A2"
       linkOpacity={0.5}
       linkCurvature={0.1}
-      linkDirectionalParticleWidth={1}
-      linkDirectionalParticleColor="#05B4A2"
-      linkDirectionalArrowColor="#05B4A2"
-      linkDirectionalArrowRelPos={1}
+      // linkDirectionalParticleColor="#05B4A2"
+      // linkDirectionalArrowColor="#05B4A2"
+      // linkDirectionalArrowLength={(link) => 4}
+      // linkDirectionalParticleWidth={() => 1}
+      // linkDirectionalParticles={(link) => 8}
+      // linkDirectionalArrowRelPos={() => 1}
     />
   );
 }

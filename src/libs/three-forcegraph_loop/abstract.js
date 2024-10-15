@@ -13,6 +13,7 @@ import {
   nodeRadiusScale,
   getHexColor,
   setGroupCenter,
+  getSphereIntersectionPoints,
 } from "@/libs/three-utils";
 
 import {
@@ -881,16 +882,30 @@ export const tickLevelLayout = ({
       : getLayout(data).getLinkPosition(
           getLayout(data).graph.getLink(link.source, link.target).id
         );
-    const start = pos[isD3Sim ? "source" : "from"];
-    const end = pos[isD3Sim ? "target" : "to"];
+    const startNode = pos[isD3Sim ? "source" : "from"];
+    const endNode = pos[isD3Sim ? "target" : "to"];
 
     if (
-      !start ||
-      !end ||
-      !start.hasOwnProperty("x") ||
-      !end.hasOwnProperty("x")
+      !startNode ||
+      !endNode ||
+      !startNode.hasOwnProperty("x") ||
+      !endNode.hasOwnProperty("x")
     )
       return; // skip invalid link
+
+    const radius = data.radius || MIN_RADIUS;
+
+    // get sphere intersection points as link start and end
+    const [start, end] = getSphereIntersectionPoints({
+      c1: [startNode.x, startNode.y, startNode.z],
+      c2: [endNode.x, endNode.y, endNode.z],
+      r1: radius,
+      r2: radius,
+    }).map(([x, y, z]) => ({
+      x,
+      y,
+      z,
+    }));
 
     calcLinkCurve(link); // calculate link curve for all links, including custom replaced, so it can be used in directional functionality
 
@@ -1014,16 +1029,30 @@ export const tickLevelLayout = ({
       : getLayout(data).getLinkPosition(
           getLayout(data).graph.getLink(link.source, link.target).id
         );
-    const start = pos[isD3Sim ? "source" : "from"];
-    const end = pos[isD3Sim ? "target" : "to"];
+    const startNode = pos[isD3Sim ? "source" : "from"];
+    const endNode = pos[isD3Sim ? "target" : "to"];
 
     if (
-      !start ||
-      !end ||
-      !start.hasOwnProperty("x") ||
-      !end.hasOwnProperty("x")
+      !startNode ||
+      !endNode ||
+      !startNode.hasOwnProperty("x") ||
+      !endNode.hasOwnProperty("x")
     )
       return; // skip invalid link
+
+    const radius = data.radius || MIN_RADIUS;
+
+    // get sphere intersection points as link start and end
+    const [start, end] = getSphereIntersectionPoints({
+      c1: [startNode.x, startNode.y, startNode.z],
+      c2: [endNode.x, endNode.y, endNode.z],
+      r1: radius,
+      r2: radius,
+    }).map(([x, y, z]) => ({
+      x,
+      y,
+      z,
+    }));
 
     const curvature = linkCurvatureAccessor(link);
 
