@@ -602,6 +602,13 @@ export const tickAllLayout = (data, isD3Sim = true) => {
   });
 };
 
+export const triggerAllLayout = (data, hook) => {
+  hook(getLayout(data, () => null));
+  loopData(data, (node) => {
+    hook(getLayout(node, () => null));
+  });
+};
+
 export const initLevelLayout = ({
   hasAnyPropChanged,
   state,
@@ -660,6 +667,7 @@ export const initLevelLayout = ({
               }
             });
           })
+          // .alphaMin(-Infinity)
           .stop()
       );
 
@@ -786,7 +794,14 @@ export const initLevelLayout = ({
   // });
 };
 
-export const tickLevelLayout = ({ data, state, isD3Sim, parentNode }) => {
+export const tickLevelLayout = ({
+  data,
+  state,
+  isD3Sim,
+  parentNode,
+  level = 0,
+}) => {
+  const displayLevel = state.displayLevel || 0;
   const groupObj = getGroup(data, () => null);
 
   if (groupObj) setGroupCenter(groupObj, getNodePosition(parentNode));
@@ -1041,6 +1056,7 @@ export const tickLevelLayout = ({ data, state, isD3Sim, parentNode }) => {
       parentNode,
       state,
       isD3Sim,
+      level: level + 1,
     });
   });
 };

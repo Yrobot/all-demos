@@ -88,6 +88,7 @@ import {
   tickAllLayout,
   initLevelLayout,
   tickLevelLayout,
+  triggerAllLayout,
 } from "./abstract";
 
 export default Kapsule({
@@ -122,23 +123,31 @@ export default Kapsule({
     numDimensions: {
       default: 3,
       onChange(numDim, state) {
-        const chargeForce = state.d3ForceLayout.force("charge");
+        const chargeForce = getLayout(state.graphData)?.force?.("charge");
         // Increase repulsion on 3D mode for improved spatial separation
         if (chargeForce) {
           chargeForce.strength(numDim > 2 ? -60 : -30);
         }
 
         if (numDim < 3) {
-          eraseDimension(state.graphData.nodes, "z");
+          eraseDimension("z");
         }
         if (numDim < 2) {
-          eraseDimension(state.graphData.nodes, "y");
+          eraseDimension("y");
         }
 
-        function eraseDimension(nodes, dim) {
+        const eraseNodes = (dim, nodes) => {
           nodes.forEach((d) => {
             delete d[dim]; // position
             delete d[`v${dim}`]; // velocity
+          });
+        };
+
+        function eraseDimension(dim) {
+          eraseNodes(dim, state.graphData.nodes);
+          // new Loop erase ? NOT sure
+          loopData(state.graphData, (data) => {
+            eraseNodes(dim, data.nodes);
           });
         }
       },
@@ -196,21 +205,30 @@ export default Kapsule({
       default: 0.0228,
       triggerUpdate: false,
       onChange(alphaDecay, state) {
-        state.d3ForceLayout.alphaDecay(alphaDecay);
+        triggerAllLayout(state.graphData, (layout) => {
+          layout?.alphaDecay(alphaDecay);
+        });
+        // state.d3ForceLayout.alphaDecay(alphaDecay);
       },
     },
     d3AlphaTarget: {
       default: 0,
       triggerUpdate: false,
       onChange(alphaTarget, state) {
-        state.d3ForceLayout.alphaTarget(alphaTarget);
+        triggerAllLayout(state.graphData, (layout) => {
+          layout?.alphaTarget(alphaTarget);
+        });
+        // state.d3ForceLayout.alphaTarget(alphaTarget);
       },
     },
     d3VelocityDecay: {
       default: 0.4,
       triggerUpdate: false,
       onChange(velocityDecay, state) {
-        state.d3ForceLayout.velocityDecay(velocityDecay);
+        triggerAllLayout(state.graphData, (layout) => {
+          layout?.velocityDecay(velocityDecay);
+        });
+        // state.d3ForceLayout.velocityDecay(velocityDecay);
       },
     },
     ngraphPhysics: {
@@ -227,6 +245,18 @@ export default Kapsule({
     warmupTicks: { default: 0, triggerUpdate: false }, // how many times to tick the force engine at init before starting to render
     cooldownTicks: { default: Infinity, triggerUpdate: false },
     cooldownTime: { default: 15000, triggerUpdate: false }, // ms
+    displayLevel: {
+      default: 0,
+      triggerUpdate: false,
+      onChange(displayLevel, state) {
+        const isD3Sim = state.forceEngine !== "ngraph";
+        tickLevelLayout({
+          data: state.graphData,
+          state,
+          isD3Sim,
+        });
+      },
+    }, // 0,1,2
     onLoading: { default: () => {}, triggerUpdate: false },
     onFinishLoading: { default: () => {}, triggerUpdate: false },
     onUpdate: { default: () => {}, triggerUpdate: false },
@@ -244,13 +274,23 @@ export default Kapsule({
     // Expose d3 forces for external manipulation
     d3Force: function (state, forceName, forceFn) {
       if (forceFn === undefined) {
-        return state.d3ForceLayout.force(forceName); // Force getter
+        triggerAllLayout(state.graphData, (layout) => {
+          layout?.force(forceName);
+        });
+        return this;
+        // return state.d3ForceLayout.force(forceName); // Force getter
       }
-      state.d3ForceLayout.force(forceName, forceFn); // Force setter
+      triggerAllLayout(state.graphData, (layout) => {
+        layout?.force(forceName, forceFn);
+      });
+      // state.d3ForceLayout.force(forceName, forceFn); // Force setter
       return this;
     },
     d3ReheatSimulation: function (state) {
-      state.d3ForceLayout.alpha(1);
+      triggerAllLayout(state.graphData, (layout) => {
+        layout?.alpha(1);
+      });
+      // state.d3ForceLayout.alpha(1);
       this.resetCountdown();
       return this;
     },
@@ -281,7 +321,8 @@ export default Kapsule({
           new Date() - state.startTickTime > state.cooldownTime ||
           (isD3Sim &&
             state.d3AlphaMin > 0 &&
-            state.d3ForceLayout.alpha() < state.d3AlphaMin)
+            (getLayout(state.graphData)?.alpha?.() || Infinity) <
+              state.d3AlphaMin)
         ) {
           state.engineRunning = false; // Stop ticking graph
           state.onEngineStop();

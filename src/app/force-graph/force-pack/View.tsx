@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import ForceGraph3D from "@/libs/force-graph";
+import ForceGraph3D from "@/libs/force-graph_loop";
 
 const data = {
   nodes: [
