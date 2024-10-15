@@ -12,6 +12,7 @@ import {
   getAllChildLength,
   nodeRadiusScale,
   getHexColor,
+  setGroupCenter,
 } from "@/libs/three-utils";
 
 import {
@@ -20,6 +21,7 @@ import {
   forceManyBody as d3ForceManyBody,
   forceCenter as d3ForceCenter,
   forceRadial as d3ForceRadial,
+  forceCollide as d3ForceCollide,
 } from "@/libs/d3-force-3d";
 import graph from "ngraph.graph";
 import forcelayout from "ngraph.forcelayout";
@@ -46,20 +48,35 @@ const applyMatrix4Fn = new three.BufferGeometry().applyMatrix4
   ? "applyMatrix4"
   : "applyMatrix";
 
-export const initLevelScene = ({
+const MIN_RADIUS = 4;
+const MIN_LINK_LEN = 12;
+const radiusToLinkLen = (radius = MIN_RADIUS) =>
+  Math.min(
+    Math.max(MIN_LINK_LEN, radius * 3.6),
+    Math.max(MIN_LINK_LEN, radius * 3)
+  );
+
+export const loopLevelScene = ({
   data,
   state,
   hasAnyPropChanged,
   group,
   level = 0,
   changedProps,
+  parentRadius,
 }) => {
-  // const levelMaxLen = Math.max(...data.nodes.map(getAllChildLength)) || 1;
-  // const size = nodeRadiusScale(levelMaxLen);
-  // const radius = size / 2;
+  const levelMaxLen = Math.max(...data.nodes.map(getAllChildLength)) || 1;
+  const radius = (() => {
+    if (levelMaxLen === 1) return MIN_RADIUS;
+    return (
+      (MIN_RADIUS * levelMaxLen) / 4 + MIN_LINK_LEN * levelMaxLen * 0.2 + 8 * 2
+    );
+  })();
+  data.radius = radius;
   const color = getHexColor(level);
   const linkColor = "#f0f0f0";
   const opacity = !!level ? 1 : 0.6;
+  setGroup(data, group);
 
   if (
     state.nodeAutoColorBy !== null &&
@@ -148,7 +165,7 @@ export const initLevelScene = ({
         if (obj.__graphDefaultObj) {
           // bypass internal updates for custom node objects
           const val = valAccessor(node) || 1;
-          const radius = Math.cbrt(val) * state.nodeRelSize;
+          // const radius = Math.cbrt(val) * state.nodeRelSize;
           const numSegments = state.nodeResolution;
 
           if (
@@ -181,8 +198,9 @@ export const initLevelScene = ({
             if (!sphereMaterials.hasOwnProperty(color)) {
               sphereMaterials[color] = new three.MeshLambertMaterial({
                 color: materialColor,
-                transparent: true,
                 opacity,
+                transparent: true,
+                depthWrite: opacity >= 1, // prevent cover child nodes
               });
             }
 
@@ -537,41 +555,44 @@ export const initLevelScene = ({
     state,
     data: data,
     changedProps,
+    level,
+    radius,
+    parentRadius,
   });
 
   loopData(data, (node) => {
     const childGroup = new three.Group();
     group.add(childGroup);
-    initLevelScene({
+    loopLevelScene({
       data: node,
       state,
       hasAnyPropChanged,
       group: childGroup,
       changedProps,
+      level: level + 1,
+      parentRadius: radius,
     });
   });
 };
 
 export const loopData = (data, hook) => {
+  // return;
   data?.nodes?.forEach((node) => {
     if (node.children) {
-      hook(node.children);
+      hook(node.children, node);
     }
   });
 };
 
-export const getLayout = (
-  node,
-  initLayout = () =>
-    d3ForceSimulation()
-      .force("link", d3ForceLink())
-      .force("charge", d3ForceManyBody())
-      .force("center", d3ForceCenter())
-      .force("dagRadial", null)
-      .stop()
-) => node["__level_layout"] || initLayout();
+export const getLayout = (node, initLayout = () => null) =>
+  node["__level_layout"] || initLayout();
 
 export const setLayout = (node, layout) => (node["__level_layout"] = layout);
+
+export const getGroup = (node, initLayout = () => null) =>
+  node["__level_group"] || initLayout();
+
+export const setGroup = (node, layout) => (node["__level_group"] = layout);
 
 export const tickAllLayout = (data, isD3Sim = true) => {
   const layout = getLayout(data, () => null);
@@ -586,6 +607,9 @@ export const initLevelLayout = ({
   state,
   data,
   changedProps,
+  level,
+  radius,
+  parentRadius,
 }) => {
   // simulation engine
   if (
@@ -613,7 +637,33 @@ export const initLevelLayout = ({
     const isD3Sim = state.forceEngine !== "ngraph";
     let layout;
     if (isD3Sim) {
-      layout = getLayout(data);
+      layout = getLayout(data, () =>
+        d3ForceSimulation()
+          .force("link", d3ForceLink())
+          .force("charge", d3ForceManyBody())
+          .force("center", d3ForceCenter())
+          .force("dagRadial", null)
+          .force("circularConstraint", (alpha) => {
+            if (!parentRadius || !radius) return;
+            const padding = 8;
+            data.nodes.forEach((node, i) => {
+              const dx = node.x;
+              const dy = node.y;
+              const dz = node.z;
+              const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+              const max = parentRadius - padding - radius;
+              if (distance > max) {
+                const scale = max / distance;
+                node.x = dx * scale;
+                node.y = dy * scale;
+                node.z = dz * scale;
+              }
+            });
+          })
+          .stop()
+      );
+
+      if (data.radius) layout.force("collision", d3ForceCollide(data.radius));
 
       // D3-force
       layout
@@ -627,7 +677,10 @@ export const initLevelLayout = ({
       // add links (if link force is still active)
       const linkForce = layout.force("link");
       if (linkForce) {
-        linkForce.id((d) => d[state.nodeId]).links(data.links);
+        linkForce
+          .id((d) => d[state.nodeId])
+          .links(data.links)
+          .distance(radiusToLinkLen(data.radius));
       }
 
       // setup dag force constraints
@@ -722,17 +775,22 @@ export const initLevelLayout = ({
     state.layout = layout;
   }
 
-  loopData(data, (node) => {
-    initLevelLayout({
-      data: node,
-      hasAnyPropChanged,
-      state,
-      changedProps,
-    });
-  });
+  // loopData(data, (node) => {
+  //   initLevelLayout({
+  //     data: node,
+  //     hasAnyPropChanged,
+  //     state,
+  //     changedProps,
+  //     level: level + 1,
+  //   });
+  // });
 };
 
-export const tickLevelLayout = ({ data, state, isD3Sim }) => {
+export const tickLevelLayout = ({ data, state, isD3Sim, parentNode }) => {
+  const groupObj = getGroup(data, () => null);
+
+  if (groupObj) setGroupCenter(groupObj, getNodePosition(parentNode));
+
   const nodeThreeObjectExtendAccessor = accessorFn(state.nodeThreeObjectExtend);
 
   // Update nodes position
@@ -976,9 +1034,11 @@ export const tickLevelLayout = ({ data, state, isD3Sim }) => {
     }
   }
 
-  loopData(data, (node) => {
+  loopData(data, (node, parentNode) => {
+    // node.center = getNodePosition(parentNode);
     tickLevelLayout({
       data: node,
+      parentNode,
       state,
       isD3Sim,
     });

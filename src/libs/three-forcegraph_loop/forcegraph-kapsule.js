@@ -81,7 +81,7 @@ import {
 import getDagDepths from "./utils/dagDepths";
 
 import {
-  initLevelScene,
+  loopLevelScene,
   loopData,
   getLayout,
   setLayout,
@@ -569,7 +569,7 @@ export default Kapsule({
     state.engineRunning = false; // pause simulation
     state.onUpdate();
 
-    initLevelScene({
+    loopLevelScene({
       data: state.graphData,
       state,
       hasAnyPropChanged,

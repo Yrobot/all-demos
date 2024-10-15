@@ -14,9 +14,11 @@ import {
   createLinkObject,
   createNodeObject,
   getAllChildLength,
-  nodeRadiusScale,
   getThreeColor,
+  setGroupCenter,
 } from "@/libs/three-utils";
+
+const nodeRadiusScale = d3.scaleSqrt().domain([1, 2]).range([20, 80]);
 
 const graphData = {
   nodes: [
@@ -116,7 +118,7 @@ const drawLevelForce = (
         .distance(size * 2)
     )
     .force("charge", d3.forceManyBody().strength(-50))
-    .force("center", d3.forceCenter(center[0], center[1]))
+    // .force("center", d3.forceCenter(center[0], center[1]))
     .force("collide", d3.forceCollide(radius))
     .force("circularConstraint", (alpha) => {
       if (level === 0) return;
@@ -137,6 +139,8 @@ const drawLevelForce = (
         }
       });
     });
+
+  setGroupCenter(container, center);
 
   const color = getThreeColor(level);
 

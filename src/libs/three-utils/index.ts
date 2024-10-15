@@ -21,7 +21,8 @@ export type NodeGen<T extends Object> = {
 
 export type LinkGen<T extends Object> = d3.SimulationLinkDatum<NodeGen<T>>;
 
-export const nodeRadiusScale = d3.scaleSqrt().domain([1, 2]).range([20, 80]);
+export const nodeRadiusScale = d3.scaleSqrt().domain([1, 6]).range([8, 40]);
+// console.log([0, 1, 2, 3].map(nodeRadiusScale));
 
 export const getThreeColor = (i: number) =>
   hexToThreeColor(d3.schemeCategory10[i]);
@@ -40,11 +41,17 @@ export const getAllChildLength = (node: {
   }
 };
 
-export const getNodePosition = (node: NodePos): Position => [
-  node.x || 0,
-  node.y || 0,
-  node.z || 0,
+export const getNodePosition = (node?: NodePos): Position => [
+  node?.x || 0,
+  node?.y || 0,
+  node?.z || 0,
 ];
+
+export const setGroupCenter = (group: THREE.Group, center: Position) => {
+  group.position.x = center[0];
+  group.position.y = center[1];
+  group.position.z = center[2];
+};
 
 export const hexToThreeColor = (hex: string) => {
   const r = parseInt(hex.substring(1, 3), 16);

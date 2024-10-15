@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import ThreeForceGraph from "@/libs/three-forcegraph_loop";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
 export default ({ graphData }) => {
   const Graph = new ThreeForceGraph().graphData(graphData);
@@ -24,6 +25,13 @@ export default ({ graphData }) => {
   camera.lookAt(Graph.position);
   camera.position.z = Math.cbrt(len) * 180;
 
+
+  // Add controls
+  const orbitControl = new OrbitControls(camera, renderer.domElement);
+  orbitControl.enableDamping = true;
+  orbitControl.dampingFactor = 0.25;
+  orbitControl.enableZoom = true;
+
   // Kick-off renderer
   (function animate() {
     // IIFE
@@ -31,6 +39,7 @@ export default ({ graphData }) => {
 
     // Frame cycle
     renderer.render(scene, camera);
+    orbitControl.update();
     requestAnimationFrame(animate);
   })();
 

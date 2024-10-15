@@ -149,7 +149,7 @@ const drawLevelForce = (
     )
     .force("charge", d3.forceManyBody().strength(-500))
     .force("center", d3.forceCenter(center[0], center[1]))
-    .force("collide", d3.forceCollide(radius))
+    .force("collision", d3.forceCollide(radius))
     .force("circularConstraint", (alpha) => {
       if (level === 0) return;
       const padding = 10;
