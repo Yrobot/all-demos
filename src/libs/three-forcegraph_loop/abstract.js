@@ -75,7 +75,8 @@ export const loopLevelScene = ({
   data.radius = radius;
   const color = getHexColor(level);
   const linkColor = "#f0f0f0";
-  const opacity = !!level ? 1 : 0.6;
+  // const opacity = !!level ? 1 : 0.6;
+  const opacity = 1;
   setGroup(data, group);
 
   if (
@@ -799,6 +800,12 @@ export const loopLevelDisplay = ({ data, state, level = 0, loop = true }) => {
   const isDisplayLevel = level <= displayLevel;
   const groupObj = getGroup(data, () => null);
   if (groupObj) groupObj.visible = isDisplayLevel;
+
+  data.nodes.forEach((node) => {
+    const obj = node.__threeObj;
+    if (!obj) return;
+    obj.material.opacity = level < displayLevel ? 0.3 : 1;
+  });
 
   if (loop)
     loopData(data, (node, parentNode) => {
