@@ -68,6 +68,7 @@ const linkedFGProps = Object.assign(
     "warmupTicks",
     "cooldownTicks",
     "cooldownTime",
+    "displayLevel",
     "onEngineTick",
     "onEngineStop",
   ].map((p) => ({ [p]: bindFG.linkProp(p) }))
@@ -395,6 +396,27 @@ export default Kapsule({
 
             // clear cursor
             renderer.domElement.classList.remove("grabbable");
+          });
+
+          let initZoom = 0;
+          setTimeout(() => {
+            initZoom = controls.target.distanceTo(controls.object.position);
+            calcDisplayLevel();
+          }, 500);
+          const calcDisplayLevel = () => {
+            if (initZoom === 0) return;
+            const currentZoom = controls.target.distanceTo(
+              controls.object.position
+            );
+            const zoom = initZoom / currentZoom;
+            const displayLevel = zoom > 1.4 ? 1 : 0;
+            if (displayLevel !== state.displayLevel) {
+              // console.log("displayLevel", state.displayLevel, displayLevel);
+              this.displayLevel(displayLevel);
+            }
+          };
+          controls.addEventListener("change", () => {
+            calcDisplayLevel();
           });
         }
       });

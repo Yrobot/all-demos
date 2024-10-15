@@ -200,7 +200,7 @@ export const loopLevelScene = ({
                 color: materialColor,
                 opacity,
                 transparent: true,
-                depthWrite: opacity >= 1, // prevent cover child nodes
+                depthWrite: false,
               });
             }
 
@@ -589,8 +589,8 @@ export const getLayout = (node, initLayout = () => null) =>
 
 export const setLayout = (node, layout) => (node["__level_layout"] = layout);
 
-export const getGroup = (node, initLayout = () => null) =>
-  node["__level_group"] || initLayout();
+export const getGroup = (node, initGroup = () => null) =>
+  node["__level_group"] || initGroup();
 
 export const setGroup = (node, layout) => (node["__level_group"] = layout);
 
@@ -794,6 +794,22 @@ export const initLevelLayout = ({
   // });
 };
 
+export const loopLevelDisplay = ({ data, state, level = 0, loop = true }) => {
+  const displayLevel = state.displayLevel || 0;
+  const isDisplayLevel = level <= displayLevel;
+  const groupObj = getGroup(data, () => null);
+  if (groupObj) groupObj.visible = isDisplayLevel;
+
+  if (loop)
+    loopData(data, (node, parentNode) => {
+      loopLevelDisplay({
+        data: node,
+        state,
+        level: level + 1,
+      });
+    });
+};
+
 export const tickLevelLayout = ({
   data,
   state,
@@ -801,10 +817,13 @@ export const tickLevelLayout = ({
   parentNode,
   level = 0,
 }) => {
-  const displayLevel = state.displayLevel || 0;
+  // const displayLevel = state.displayLevel || 0;
+  // const isDisplayLevel = level <= displayLevel;
   const groupObj = getGroup(data, () => null);
-
+  // if (groupObj) groupObj.visible = isDisplayLevel;
   if (groupObj) setGroupCenter(groupObj, getNodePosition(parentNode));
+
+  loopLevelDisplay({ data, state, level, loop: false });
 
   const nodeThreeObjectExtendAccessor = accessorFn(state.nodeThreeObjectExtend);
 

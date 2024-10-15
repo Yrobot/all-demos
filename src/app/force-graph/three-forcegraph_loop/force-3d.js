@@ -25,12 +25,23 @@ export default ({ graphData }) => {
   camera.lookAt(Graph.position);
   camera.position.z = Math.cbrt(len) * 180;
 
-
   // Add controls
   const orbitControl = new OrbitControls(camera, renderer.domElement);
   orbitControl.enableDamping = true;
   orbitControl.dampingFactor = 0.25;
   orbitControl.enableZoom = true;
+
+  const initZoom = orbitControl.target.distanceTo(orbitControl.object.position);
+
+  orbitControl.addEventListener("change", () => {
+    const currentZoom = orbitControl.target.distanceTo(
+      orbitControl.object.position
+    );
+    const zoom = initZoom / currentZoom;
+    const displayLevel = zoom > 1.5 ? 1 : 0;
+    console.log("displayLevel", displayLevel);
+    // if (displayLevel !== state.displayLevel) state.displayLevel = displayLevel;
+  });
 
   // Kick-off renderer
   (function animate() {

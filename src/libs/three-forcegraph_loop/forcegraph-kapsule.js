@@ -89,6 +89,7 @@ import {
   initLevelLayout,
   tickLevelLayout,
   triggerAllLayout,
+  loopLevelDisplay,
 } from "./abstract";
 
 export default Kapsule({
@@ -249,12 +250,11 @@ export default Kapsule({
       default: 0,
       triggerUpdate: false,
       onChange(displayLevel, state) {
+        // console.log("displayLevel.onChange", displayLevel);
         const isD3Sim = state.forceEngine !== "ngraph";
-        tickLevelLayout({
-          data: state.graphData,
-          state,
-          isD3Sim,
-        });
+        if (isD3Sim) {
+          loopLevelDisplay({ data: state.graphData, state, level: 0 });
+        }
       },
     }, // 0,1,2
     onLoading: { default: () => {}, triggerUpdate: false },
