@@ -153,6 +153,7 @@ export const loopLevelScene = ({
 
         obj.__graphObjType = "node"; // Add object type
         obj.__renderLevel = level;
+        obj.__group = group;
 
         obj.renderOrder = level; // threejs render order
 
@@ -316,6 +317,7 @@ export const loopLevelScene = ({
 
         obj.__graphObjType = "link"; // Add object type
         obj.__renderLevel = level;
+        obj.__group = group;
 
         return obj;
       },

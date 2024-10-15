@@ -1,5 +1,5 @@
 "use client";
-import React from "react";
+import React, { useRef, useCallback } from "react";
 import ForceGraph3D from "@/libs/force-graph";
 
 const data = {
@@ -75,8 +75,29 @@ const data = {
 };
 
 function View() {
+  const fgRef = useRef<any>(null);
+
+  const lookAt = useCallback(
+    (position: any) => {
+      const graph = fgRef.current;
+      const distance = 120;
+      const distRatio =
+        1 + distance / Math.hypot(position.x, position.y, position.z);
+      graph.cameraPosition(
+        {
+          x: position.x * distRatio,
+          y: position.y * distRatio,
+          z: position.z * distRatio,
+        }, // new position
+        position, // lookAt ({ x, y, z })
+        3000 // ms transition duration
+      );
+    },
+    [fgRef.current]
+  );
   return (
     <ForceGraph3D
+      ref={fgRef}
       graphData={data}
       showNavInfo={false}
       backgroundColor="#12151D"
@@ -98,11 +119,29 @@ function View() {
         return ["#219ebc", "#ffb703"][level];
       }}
       onNodeHover={(node) => {
-        console.log(`onNodeHover [${node?.id}]`);
+        console.log(`onNodeHover [${node?.id}]`, node);
       }}
       onNodeClick={(node) => {
-        console.log(`onNodeClick [${node?.id}]`);
-        alert(`onNodeClick [${node?.id}]`);
+        console.log(`onNodeClick [${node?.id}]`, node);
+        // const level = node?.__threeObj?.__renderLevel;
+        // if (level === 0) lookAt(node);
+        // alert(`onNodeClick [${node?.id}]`);
+
+        const group = node?.__threeObj?.__group;
+        const center = [group.position, node].reduce(
+          (pre, cur) => {
+            pre.x += cur.x;
+            pre.y += cur.y;
+            pre.z += cur.z;
+            return pre;
+          },
+          {
+            x: 0,
+            y: 0,
+            z: 0,
+          }
+        );
+        lookAt(center);
       }}
     />
   );
