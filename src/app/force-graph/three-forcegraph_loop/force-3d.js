@@ -3,7 +3,7 @@ import ThreeForceGraph from "@/libs/three-forcegraph_loop";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
 export default ({ graphData }) => {
-  const Graph = new ThreeForceGraph().graphData(graphData);
+  const Graph = new ThreeForceGraph().graphData(graphData).nodeResolution(24);
   const len = graphData.nodes.length;
 
   // Setup renderer

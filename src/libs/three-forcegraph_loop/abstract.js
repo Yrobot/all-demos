@@ -160,6 +160,8 @@ export const loopLevelScene = ({
 
         obj.__graphObjType = "node"; // Add object type
 
+        obj.renderOrder = level; // threejs render order
+
         return obj;
       },
       updateObj: (obj, node) => {
@@ -202,6 +204,7 @@ export const loopLevelScene = ({
                 opacity,
                 transparent: true,
                 depthWrite: false,
+                // depthTest: true,
               });
             }
 
@@ -390,7 +393,8 @@ export const loopLevelScene = ({
                   color: materialColor,
                   transparent: opacity < 1,
                   opacity,
-                  depthWrite: opacity >= 1, // Prevent transparency issues
+                  depthWrite: false, // Prevent transparency issues
+                  // depthTest: true,
                 });
               }
 
@@ -416,7 +420,10 @@ export const loopLevelScene = ({
         createObj: () => {
           const obj = new three.Mesh(
             undefined,
-            new three.MeshLambertMaterial({ transparent: true })
+            new three.MeshLambertMaterial({
+              transparent: true,
+              depthWrite: false,
+            })
           );
           obj.__linkThreeObjType = "arrow"; // Add object type
 
@@ -523,6 +530,7 @@ export const loopLevelScene = ({
                 color: materialColor,
                 transparent: true,
                 opacity,
+                depthWrite: false,
               });
             }
             particleMaterial = particleMaterials[photonColor];
