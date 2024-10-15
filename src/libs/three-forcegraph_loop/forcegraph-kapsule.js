@@ -91,6 +91,7 @@ import {
   triggerAllLayout,
   loopLevelDisplay,
   loopLinkArrows,
+  loopLinkPhotons,
 } from "./abstract";
 
 export default Kapsule({
@@ -315,7 +316,12 @@ export default Kapsule({
         isD3Sim,
         level: 0,
       });
-      updatePhotons();
+      loopLinkPhotons({
+        data: state.graphData,
+        state,
+        isD3Sim,
+        level: 0,
+      });
 
       return this;
 
@@ -342,89 +348,6 @@ export default Kapsule({
           data: state.graphData,
           state,
           isD3Sim,
-        });
-      }
-
-      function updatePhotons() {
-        // update link particle positions
-        const particleSpeedAccessor = accessorFn(
-          state.linkDirectionalParticleSpeed
-        );
-        state.graphData.links.forEach((link) => {
-          const cyclePhotons = link.__photonsObj && link.__photonsObj.children;
-          const singleHopPhotons =
-            link.__singleHopPhotonsObj && link.__singleHopPhotonsObj.children;
-
-          if (
-            (!singleHopPhotons || !singleHopPhotons.length) &&
-            (!cyclePhotons || !cyclePhotons.length)
-          )
-            return;
-
-          const pos = isD3Sim
-            ? link
-            : state.layout.getLinkPosition(
-                state.layout.graph.getLink(link.source, link.target).id
-              );
-          const start = pos[isD3Sim ? "source" : "from"];
-          const end = pos[isD3Sim ? "target" : "to"];
-
-          if (
-            !start ||
-            !end ||
-            !start.hasOwnProperty("x") ||
-            !end.hasOwnProperty("x")
-          )
-            return; // skip invalid link
-
-          const particleSpeed = particleSpeedAccessor(link);
-
-          const getPhotonPos = link.__curve
-            ? (t) => link.__curve.getPoint(t) // interpolate along bezier curve
-            : (t) => {
-                // straight line: interpolate linearly
-                const iplt = (dim, start, end, t) =>
-                  start[dim] + (end[dim] - start[dim]) * t || 0;
-                return {
-                  x: iplt("x", start, end, t),
-                  y: iplt("y", start, end, t),
-                  z: iplt("z", start, end, t),
-                };
-              };
-
-          const photons = [
-            ...(cyclePhotons || []),
-            ...(singleHopPhotons || []),
-          ];
-
-          photons.forEach((photon, idx) => {
-            const singleHop =
-              photon.parent.__linkThreeObjType === "singleHopPhotons";
-
-            if (!photon.hasOwnProperty("__progressRatio")) {
-              photon.__progressRatio = singleHop
-                ? 0
-                : idx / cyclePhotons.length;
-            }
-
-            photon.__progressRatio += particleSpeed;
-
-            if (photon.__progressRatio >= 1) {
-              if (!singleHop) {
-                photon.__progressRatio = photon.__progressRatio % 1;
-              } else {
-                // remove particle
-                photon.parent.remove(photon);
-                emptyObject(photon);
-                return;
-              }
-            }
-
-            const photonPosRatio = photon.__progressRatio;
-
-            const pos = getPhotonPos(photonPosRatio);
-            ["x", "y", "z"].forEach((dim) => (photon.position[dim] = pos[dim]));
-          });
         });
       }
     },

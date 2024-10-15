@@ -74,6 +74,7 @@ export const loopLevelScene = ({
     );
   })();
   data.radius = radius;
+  const linkLen = radiusToLinkLen(radius) - radius * 2;
   const color = getHexColor(level);
   const linkColor = "#f0f0f0";
   // const opacity = !!level ? 1 : 0.6;
@@ -428,11 +429,14 @@ export const loopLevelScene = ({
           );
           obj.__linkThreeObjType = "arrow"; // Add object type
 
+          // obj.visible = false; // Hide by default
           return obj;
         },
         updateObj: (obj, link) => {
-          const arrowLength = arrowLengthAccessor(link);
+          // const arrowLength = arrowLengthAccessor(link);
+          const arrowLength = Math.min(MIN_RADIUS, radius / 2);
           const numSegments = state.linkDirectionalArrowResolution;
+          link.__arrowLength = arrowLength;
 
           if (
             !obj.geometry.type.match(/^Cone(Buffer)?Geometry$/) ||
@@ -486,7 +490,7 @@ export const loopLevelScene = ({
           return obj;
         },
         updateObj: (obj, link) => {
-          const numPhotons = Math.round(Math.abs(particlesAccessor(link)));
+          const numPhotons = Math.round(linkLen / 6);
 
           const curPhoton = !!obj.children.length && obj.children[0];
 
@@ -792,16 +796,6 @@ export const initLevelLayout = ({
 
     state.layout = layout;
   }
-
-  // loopData(data, (node) => {
-  //   initLevelLayout({
-  //     data: node,
-  //     hasAnyPropChanged,
-  //     state,
-  //     changedProps,
-  //     level: level + 1,
-  //   });
-  // });
 };
 
 export const loopLevelDisplay = ({ data, state, level = 0, loop = true }) => {
@@ -1171,7 +1165,7 @@ export const loopLinkArrows = ({ data, state, level = 0, isD3Sim = true }) => {
     const startR = 0;
     const endR = 0;
 
-    const arrowLength = arrowLengthAccessor(link);
+    const arrowLength = link.__arrowLength ?? arrowLengthAccessor(link);
     const arrowRelPos = arrowRelPosAccessor(link);
 
     const getPosAlongLine = link.__curve
@@ -1214,6 +1208,103 @@ export const loopLinkArrows = ({ data, state, level = 0, isD3Sim = true }) => {
 
   loopData(data, (node, parentNode) => {
     loopLinkArrows({
+      data: node,
+      state,
+      isD3Sim,
+      level: level + 1,
+    });
+  });
+};
+
+export const loopLinkPhotons = ({ data, state, level = 0, isD3Sim = true }) => {
+  const particleSpeedAccessor = accessorFn(state.linkDirectionalParticleSpeed);
+  data.links.forEach((link) => {
+    const cyclePhotons = link.__photonsObj && link.__photonsObj.children;
+    const singleHopPhotons =
+      link.__singleHopPhotonsObj && link.__singleHopPhotonsObj.children;
+
+    if (
+      (!singleHopPhotons || !singleHopPhotons.length) &&
+      (!cyclePhotons || !cyclePhotons.length)
+    )
+      return;
+
+    const pos = isD3Sim
+      ? link
+      : getLayout(data).getLinkPosition(
+          getLayout(data).graph.getLink(link.source, link.target).id
+        );
+    const startNode = pos[isD3Sim ? "source" : "from"];
+    const endNode = pos[isD3Sim ? "target" : "to"];
+
+    if (
+      !startNode ||
+      !endNode ||
+      !startNode.hasOwnProperty("x") ||
+      !endNode.hasOwnProperty("x")
+    )
+      return; // skip invalid link
+
+    const radius = data.radius || MIN_RADIUS;
+
+    // get sphere intersection points as link start and end
+    const [start, end] = getSphereIntersectionPoints({
+      c1: [startNode.x, startNode.y, startNode.z],
+      c2: [endNode.x, endNode.y, endNode.z],
+      r1: radius,
+      r2: radius,
+    }).map(([x, y, z]) => ({
+      x,
+      y,
+      z,
+    }));
+
+    const particleSpeed = particleSpeedAccessor(link);
+
+    const getPhotonPos = link.__curve
+      ? (t) => link.__curve.getPoint(t) // interpolate along bezier curve
+      : (t) => {
+          // straight line: interpolate linearly
+          const iplt = (dim, start, end, t) =>
+            start[dim] + (end[dim] - start[dim]) * t || 0;
+          return {
+            x: iplt("x", start, end, t),
+            y: iplt("y", start, end, t),
+            z: iplt("z", start, end, t),
+          };
+        };
+
+    const photons = [...(cyclePhotons || []), ...(singleHopPhotons || [])];
+
+    photons.forEach((photon, idx) => {
+      const singleHop = photon.parent.__linkThreeObjType === "singleHopPhotons";
+
+      if (!photon.hasOwnProperty("__progressRatio")) {
+        photon.__progressRatio = singleHop ? 0 : idx / cyclePhotons.length;
+      }
+
+      photon.__progressRatio += particleSpeed;
+
+      if (photon.__progressRatio >= 1) {
+        if (!singleHop) {
+          photon.__progressRatio = photon.__progressRatio % 1;
+        } else {
+          // remove particle
+          photon.parent.remove(photon);
+          emptyObject(photon);
+          return;
+        }
+      }
+
+      const photonPosRatio = photon.__progressRatio;
+
+      const pos = getPhotonPos(photonPosRatio);
+      ["x", "y", "z"].forEach((dim) => (photon.position[dim] = pos[dim]));
+    });
+  });
+
+  loopData(data, (node, parentNode) => {
+    loopLinkPhotons({
       data: node,
       state,
       isD3Sim,
