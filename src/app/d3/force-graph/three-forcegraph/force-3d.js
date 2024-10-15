@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import ThreeForceGraph from "@/libs/three-forcegraph_loop";
+import ThreeForceGraph from "@/libs/three-forcegraph";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
 export default ({ graphData }) => {

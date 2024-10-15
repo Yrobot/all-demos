@@ -1,16 +1,8 @@
 import * as three from "three";
 
 import {
-  NodePos,
-  NodeGen,
-  LinkGen,
   getNodePosition,
-  hexToThreeColor,
-  updateLinkObjPosition,
-  createLinkObject,
-  createNodeObject,
   getAllChildLength,
-  nodeRadiusScale,
   getHexColor,
   setGroupCenter,
   getSphereIntersectionPoints,
@@ -23,12 +15,11 @@ import {
   forceCenter as d3ForceCenter,
   forceRadial as d3ForceRadial,
   forceCollide as d3ForceCollide,
-} from "@/libs/d3-force-3d";
+} from "d3-force-3d";
 import graph from "ngraph.graph";
 import forcelayout from "ngraph.forcelayout";
 const ngraph = { graph, forcelayout };
 
-import Kapsule from "kapsule";
 import accessorFn from "accessor-fn";
 import threeDigest from "./utils/three-digest";
 import { emptyObject } from "./utils/three-gc";

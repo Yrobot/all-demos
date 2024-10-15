@@ -2,13 +2,37 @@ import * as three from "three";
 
 import { DragControls as ThreeDragControls } from "three/examples/jsm/controls/DragControls.js";
 
-import ThreeForceGraph from "@/libs/three-forcegraph_loop";
+import ThreeForceGraph from "@/libs/three-forcegraph";
 import ThreeRenderObjects from "three-render-objects";
 
 import accessorFn from "accessor-fn";
 import Kapsule from "kapsule";
 
 import linkKapsule from "./kapsule-link.js";
+
+const loopData = (data, hook) => {
+  // return;
+  data?.nodes?.forEach((node) => {
+    if (node.children) {
+      hook(node.children, node);
+    }
+  });
+};
+
+const loopLevelNodes = (data, arr = [], level = 0, pickLevel = 0) => {
+  if (level === pickLevel) arr.push(...(data?.nodes || []));
+  if (level < pickLevel)
+    loopData(data, (node) => {
+      loopLevelNodes(node, arr, level + 1, pickLevel);
+    });
+};
+
+const getListenDragNodes = (state) => {
+  const displayLevel = state.displayLevel || 0;
+  const nodes = [];
+  loopLevelNodes(state.graphData, nodes, 0, displayLevel);
+  return nodes;
+};
 
 //
 
@@ -68,6 +92,7 @@ const linkedFGProps = Object.assign(
     "warmupTicks",
     "cooldownTicks",
     "cooldownTime",
+    "displayLevel",
     "onEngineTick",
     "onEngineStop",
   ].map((p) => ({ [p]: bindFG.linkProp(p) }))
@@ -278,11 +303,13 @@ export default Kapsule({
           state.enablePointerInteraction &&
           state.forceEngine === "d3"
         ) {
+          let dragObjs = getListenDragNodes(state)
+            .map((node) => node.__threeObj)
+            .filter((obj) => obj);
+          // let dragObjs = [];
           // Can't access node positions programmatically in ngraph
           const dragControls = (state._dragControls = new ThreeDragControls(
-            state.graphData.nodes
-              .map((node) => node.__threeObj)
-              .filter((obj) => obj),
+            dragObjs,
             camera,
             renderer.domElement
           ));
@@ -396,6 +423,34 @@ export default Kapsule({
             // clear cursor
             renderer.domElement.classList.remove("grabbable");
           });
+
+          let initZoom = 0;
+          setTimeout(() => {
+            initZoom = controls.target.distanceTo(controls.object.position);
+            calcDisplayLevel();
+          }, 500);
+          const calcDisplayLevel = () => {
+            if (initZoom === 0) return;
+            const currentZoom = controls.target.distanceTo(
+              controls.object.position
+            );
+            const zoom = initZoom / currentZoom;
+            const displayLevel = zoom > 1.4 ? 1 : 0;
+            if (displayLevel !== state.displayLevel) {
+              // console.log("displayLevel", state.displayLevel, displayLevel);
+              this.displayLevel(displayLevel);
+              dragObjs.length = 0;
+              dragObjs.push(
+                ...getListenDragNodes(state)
+                  .map((node) => node.__threeObj)
+                  .filter((obj) => obj)
+              );
+              // console.log(dragObjs);
+            }
+          };
+          controls.addEventListener("change", () => {
+            calcDisplayLevel();
+          });
         }
       });
 
@@ -423,6 +478,8 @@ export default Kapsule({
           : "";
       })
       .hoverDuringDrag(false)
+      .hoverFilter((obj) => parseInt(obj.__renderLevel) === state.displayLevel) // only listen the main level nodes and links
+      // .hoverOrderComparator((a, b) => b.__renderLevel - a.__renderLevel) // deeper level node has a higher priority
       .onHover((obj) => {
         // Update tooltip and trigger onHover events
         const hoverObj = getGraphObj(obj);

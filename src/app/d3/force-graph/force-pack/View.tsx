@@ -1,7 +1,6 @@
 "use client";
-import React, { useEffect } from "react";
-
-import force3d from "./force-3d";
+import React from "react";
+import ForceGraph3D from "@/libs/force-graph";
 
 const data = {
   nodes: [
@@ -75,16 +74,38 @@ const data = {
   ],
 };
 
-const ID = "force-3d";
 function View() {
-  useEffect(() => {
-    document.getElementById(ID)?.appendChild(
-      force3d({
-        graphData: data,
-      })
-    );
-  }, []);
-  return <div id={ID}></div>;
+  return (
+    <ForceGraph3D
+      graphData={data}
+      showNavInfo={false}
+      backgroundColor="#12151D"
+      nodeLabel={(node) => node.id}
+      nodeResolution={24}
+      nodeRelSize={6}
+      nodeOpacity={0.6}
+      nodeThreeObjectExtend
+      linkColor="#05B4A2"
+      linkOpacity={0.5}
+      linkCurvature={0.1}
+      linkDirectionalParticleColor="#05B4A2"
+      linkDirectionalArrowColor="#05B4A2"
+      linkDirectionalArrowLength={(link) => 4}
+      linkDirectionalParticleWidth={() => 1}
+      linkDirectionalParticles={(link) => 8}
+      linkDirectionalArrowRelPos={() => 1}
+      nodeColor={(node, level) => {
+        return ["#219ebc", "#ffb703"][level];
+      }}
+      onNodeHover={(node) => {
+        console.log(`onNodeHover [${node?.id}]`);
+      }}
+      onNodeClick={(node) => {
+        console.log(`onNodeClick [${node?.id}]`);
+        alert(`onNodeClick [${node?.id}]`);
+      }}
+    />
+  );
 }
 
 export default View;
