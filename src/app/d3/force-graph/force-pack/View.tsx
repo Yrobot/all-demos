@@ -123,25 +123,26 @@ function View() {
       }}
       onNodeClick={(node) => {
         console.log(`onNodeClick [${node?.id}]`, node);
-        // const level = node?.__threeObj?.__renderLevel;
-        // if (level === 0) lookAt(node);
-        // alert(`onNodeClick [${node?.id}]`);
-
-        const group = node?.__threeObj?.__group;
-        const center = [group.position, node].reduce(
-          (pre, cur) => {
-            pre.x += cur.x;
-            pre.y += cur.y;
-            pre.z += cur.z;
-            return pre;
-          },
-          {
-            x: 0,
-            y: 0,
-            z: 0,
-          }
-        );
-        lookAt(center);
+        const level = node?.__threeObj?.__renderLevel;
+        if (level === 0) {
+          const group = node?.__threeObj?.__group;
+          const center = [group.position, node].reduce(
+            (pre, cur) => {
+              pre.x += cur.x;
+              pre.y += cur.y;
+              pre.z += cur.z;
+              return pre;
+            },
+            {
+              x: 0,
+              y: 0,
+              z: 0,
+            }
+          );
+          lookAt(center);
+        } else {
+          alert(`onNodeClick [${node?.id}]`);
+        }
       }}
     />
   );
