@@ -69,6 +69,7 @@ function View() {
       nodeResolution={24}
       nodeRelSize={6}
       linkColor="#05B4A2"
+      linkWidth={1}
       linkOpacity={0.5}
       linkCurvature={0.1}
       linkDirectionalParticleColor="#05B4A2"

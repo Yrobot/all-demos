@@ -1,5 +1,5 @@
 "use client";
-import React, { useRef, useCallback } from "react";
+import React, { useRef, useCallback, useState } from "react";
 import ForceGraph3D from "@/libs/force-graph";
 
 const data = {
@@ -74,41 +74,116 @@ const data = {
   ],
 };
 
-const getNodeColor = (node: any, level: number) => {
+const getNodeColor = (
+  node: any,
+  {
+    isHover,
+    isSelected,
+  }: {
+    isHover: boolean;
+    isSelected: boolean;
+  }
+) => {
   const id = node.id;
-  let color: string | null = null;
+  const marked = isHover || isSelected;
 
-  Object.entries({
-    "#FB5A5A": ["1", "12", "2", "22", "23"],
-    "#FF991F": ["13", "3", "31"],
-  }).forEach(([colorCode, ids]) => {
-    if (!!color) return;
-    if (ids.includes(id)) color = colorCode;
-  });
-  return color ?? "#05B4A2";
+  let colorType = "default";
+  const isError = ["1", "12", "2", "22", "23"].includes(id);
+  const isWarning = ["13", "3", "31"].includes(id);
+  if (isWarning) colorType = "warning";
+  if (isError) colorType = "error";
+
+  return (
+    (
+      {
+        default: ["#3DD598", "#05B4A2"],
+        warning: ["#FF991F", "#B46C15"],
+        error: ["#FB5A5A", "#F9372A"],
+      }[colorType] as string[]
+    )[marked ? 1 : 0] ?? "#ffffff"
+  );
 };
 
 function View() {
+  const [selectedNode, setSelectedNode] = useState<any>(null);
+  const [hoverNode, setHoverNode] = useState<any>(null);
+  const [timeMark, setTimeMark] = useState<any>(null);
+  console.log({ timeMark });
+
   const fgRef = useRef<any>(null);
 
-  const lookAt = useCallback(
-    (position: any) => {
-      const graph = fgRef.current;
-      const distance = 120;
-      const distRatio =
-        1 + distance / Math.hypot(position.x, position.y, position.z);
-      graph.cameraPosition(
-        {
-          x: position.x * distRatio,
-          y: position.y * distRatio,
-          z: position.z * distRatio,
-        }, // new position
-        position, // lookAt ({ x, y, z })
-        3000 // ms transition duration
+  const dataRef = useRef<any>({});
+  dataRef.current.hoverNode = hoverNode;
+  dataRef.current.selectedNode = selectedNode;
+
+  const lookAt = (position: any) => {
+    const graph = fgRef.current;
+    const distance = 120;
+    const distRatio =
+      1 + distance / Math.hypot(position.x, position.y, position.z);
+    graph.cameraPosition(
+      {
+        x: position.x * distRatio,
+        y: position.y * distRatio,
+        z: position.z * distRatio,
+      }, // new position
+      position, // lookAt ({ x, y, z })
+      3000 // ms transition duration
+    );
+  };
+
+  // hover or selected
+  const isRelatedLink = (link: any) => {
+    const { selectedNode, hoverNode } = dataRef.current;
+    if (!!hoverNode || !!selectedNode) {
+      return (
+        [link.source.id, link.target.id].includes(hoverNode?.id) ||
+        [link.source.id, link.target.id].includes(selectedNode?.id)
       );
+    }
+    return false;
+  };
+
+  const hooksRef = useRef<any>({
+    linkWidth: (link: any) => (isRelatedLink(link) ? 1 : 0.5),
+    linkDirectionalArrowLength: (link: any) => (isRelatedLink(link) ? 4 : 2),
+    linkDirectionalParticles: (link: any) => (isRelatedLink(link) ? 8 : 0),
+    nodeColor: (node: any, level: number) =>
+      getNodeColor(node, {
+        isHover: dataRef.current.hoverNode?.id === node.id,
+        isSelected: dataRef.current.selectedNode?.id === node.id,
+      }),
+    onNodeHover: (node: any) => {
+      // console.log(`onNodeHover [${node?.id}]`, node);
+      // setHoverNode(node);
+      // setTimeMark(Date.now());
     },
-    [fgRef.current]
-  );
+    onNodeClick: (node: any) => {
+      // console.log(`onNodeClick [${node?.id}]`, node);
+      // setSelectedNode(node);
+      const level = node?.__threeObj?.__renderLevel;
+      if (level === 0) {
+        // const group = node?.__threeObj?.__group;
+        // const center = [group.position, node].reduce(
+        //   (pre, cur) => {
+        //     pre.x += cur.x;
+        //     pre.y += cur.y;
+        //     pre.z += cur.z;
+        //     return pre;
+        //   },
+        //   {
+        //     x: 0,
+        //     y: 0,
+        //     z: 0,
+        //   }
+        // );
+        // lookAt(center);
+        lookAt(node);
+      } else {
+        alert(`onNodeClick [${node?.id}]`);
+      }
+    },
+  });
   return (
     <ForceGraph3D
       ref={fgRef}
@@ -118,48 +193,21 @@ function View() {
       nodeLabel={(node) => node.id}
       nodeResolution={24}
       nodeRelSize={6}
-      nodeOpacity={0.6}
       nodeThreeObjectExtend
+      // link style
+      linkWidth={hooksRef.current.linkWidth}
       linkColor="#05B4A2"
       linkOpacity={0.5}
       linkCurvature={0.1}
+      linkDirectionalArrowLength={hooksRef.current.linkDirectionalArrowLength}
+      linkDirectionalParticleWidth={1}
       linkDirectionalParticleColor="#05B4A2"
+      linkDirectionalParticles={hooksRef.current.linkDirectionalParticles}
       linkDirectionalArrowColor="#05B4A2"
-      linkDirectionalArrowLength={(link) => 4}
-      linkDirectionalParticleWidth={() => 1}
-      linkDirectionalParticles={(link) => 8}
-      linkDirectionalArrowRelPos={() => 1}
-      nodeColor={(node, level) => {
-        const color = getNodeColor(node, level);
-        // console.log(node.id, color);
-        return color;
-      }}
-      onNodeHover={(node) => {
-        console.log(`onNodeHover [${node?.id}]`, node);
-      }}
-      onNodeClick={(node) => {
-        console.log(`onNodeClick [${node?.id}]`, node);
-        const level = node?.__threeObj?.__renderLevel;
-        if (level === 0) {
-          const group = node?.__threeObj?.__group;
-          const center = [group.position, node].reduce(
-            (pre, cur) => {
-              pre.x += cur.x;
-              pre.y += cur.y;
-              pre.z += cur.z;
-              return pre;
-            },
-            {
-              x: 0,
-              y: 0,
-              z: 0,
-            }
-          );
-          lookAt(center);
-        } else {
-          alert(`onNodeClick [${node?.id}]`);
-        }
-      }}
+      linkDirectionalArrowRelPos={1}
+      nodeColor={hooksRef.current.nodeColor}
+      onNodeHover={hooksRef.current.onNodeHover}
+      onNodeClick={hooksRef.current.onNodeClick}
     />
   );
 }
