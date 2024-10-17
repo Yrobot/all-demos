@@ -107,60 +107,70 @@ const getNodeColor = (
 function View() {
   const [selectedNode, setSelectedNode] = useState<any>(null);
   const [hoverNode, setHoverNode] = useState<any>(null);
-  const [timeMark, setTimeMark] = useState<any>(null);
-  console.log({ timeMark });
 
   const fgRef = useRef<any>(null);
 
-  const dataRef = useRef<any>({});
-  dataRef.current.hoverNode = hoverNode;
-  dataRef.current.selectedNode = selectedNode;
-
-  const lookAt = (position: any) => {
-    const graph = fgRef.current;
-    const distance = 120;
-    const distRatio =
-      1 + distance / Math.hypot(position.x, position.y, position.z);
-    graph.cameraPosition(
-      {
-        x: position.x * distRatio,
-        y: position.y * distRatio,
-        z: position.z * distRatio,
-      }, // new position
-      position, // lookAt ({ x, y, z })
-      3000 // ms transition duration
-    );
-  };
+  const lookAt = useCallback(
+    (position: any) => {
+      const graph = fgRef.current;
+      const distance = 120;
+      const distRatio =
+        1 + distance / Math.hypot(position.x, position.y, position.z);
+      graph.cameraPosition(
+        {
+          x: position.x * distRatio,
+          y: position.y * distRatio,
+          z: position.z * distRatio,
+        }, // new position
+        position, // lookAt ({ x, y, z })
+        3000 // ms transition duration
+      );
+    },
+    [fgRef.current]
+  );
 
   // hover or selected
-  const isRelatedLink = (link: any) => {
-    const { selectedNode, hoverNode } = dataRef.current;
-    if (!!hoverNode || !!selectedNode) {
-      return (
-        [link.source.id, link.target.id].includes(hoverNode?.id) ||
-        [link.source.id, link.target.id].includes(selectedNode?.id)
-      );
-    }
-    return false;
-  };
-
-  const hooksRef = useRef<any>({
-    linkWidth: (link: any) => (isRelatedLink(link) ? 1 : 0.5),
-    linkDirectionalArrowLength: (link: any) => (isRelatedLink(link) ? 4 : 2),
-    linkDirectionalParticles: (link: any) => (isRelatedLink(link) ? 8 : 0),
-    nodeColor: (node: any, level: number) =>
-      getNodeColor(node, {
-        isHover: dataRef.current.hoverNode?.id === node.id,
-        isSelected: dataRef.current.selectedNode?.id === node.id,
-      }),
-    onNodeHover: (node: any) => {
-      // console.log(`onNodeHover [${node?.id}]`, node);
-      // setHoverNode(node);
-      // setTimeMark(Date.now());
+  const isRelatedLink = useCallback(
+    (link: any) => {
+      if (!!hoverNode || !!selectedNode) {
+        return (
+          [link.source.id, link.target.id].includes(hoverNode?.id) ||
+          [link.source.id, link.target.id].includes(selectedNode?.id)
+        );
+      }
+      return false;
     },
-    onNodeClick: (node: any) => {
-      // console.log(`onNodeClick [${node?.id}]`, node);
-      // setSelectedNode(node);
+    [hoverNode?.id, selectedNode?.id]
+  );
+
+  const linkWidth = useCallback(
+    (link: any) => (isRelatedLink(link) ? 1 : 0.5),
+    [isRelatedLink]
+  );
+
+  const linkDirectionalArrowLength = useCallback(
+    (link: any) => (isRelatedLink(link) ? 4 : 2),
+    [isRelatedLink]
+  );
+
+  const linkDirectionalParticles = useCallback(
+    (link: any) => (isRelatedLink(link) ? 8 : 0),
+    [isRelatedLink]
+  );
+
+  const nodeColor = useCallback(
+    (node: any, level: number) =>
+      getNodeColor(node, {
+        isHover: hoverNode?.id === node.id,
+        isSelected: selectedNode?.id === node.id,
+      }),
+    [getNodeColor, hoverNode?.id, selectedNode?.id]
+  );
+
+  const onNodeClick = useCallback(
+    (node: any) => {
+      console.log(`onNodeClick [${node?.id}]`, node);
+      setSelectedNode(node);
       const level = node?.__threeObj?.__renderLevel;
       if (level === 0) {
         // const group = node?.__threeObj?.__group;
@@ -183,31 +193,43 @@ function View() {
         alert(`onNodeClick [${node?.id}]`);
       }
     },
-  });
+    [setSelectedNode]
+  );
+
+  const onNodeHover = useCallback(
+    (node: any) => {
+      console.log(`onNodeHover [${node?.id}]`, node);
+      setHoverNode(node);
+    },
+    [setHoverNode]
+  );
+
+  const nodeLabel = useCallback((node: any) => node.id, []);
+
   return (
     <ForceGraph3D
       ref={fgRef}
       graphData={data}
       showNavInfo={false}
       backgroundColor="#12151D"
-      nodeLabel={(node) => node.id}
+      nodeLabel={nodeLabel}
       nodeResolution={24}
       nodeRelSize={6}
       nodeThreeObjectExtend
       // link style
-      linkWidth={hooksRef.current.linkWidth}
+      linkWidth={linkWidth}
       linkColor="#05B4A2"
       linkOpacity={0.5}
       linkCurvature={0.1}
-      linkDirectionalArrowLength={hooksRef.current.linkDirectionalArrowLength}
+      linkDirectionalArrowLength={linkDirectionalArrowLength}
       linkDirectionalParticleWidth={1}
       linkDirectionalParticleColor="#05B4A2"
-      linkDirectionalParticles={hooksRef.current.linkDirectionalParticles}
+      linkDirectionalParticles={linkDirectionalParticles}
       linkDirectionalArrowColor="#05B4A2"
       linkDirectionalArrowRelPos={1}
-      nodeColor={hooksRef.current.nodeColor}
-      onNodeHover={hooksRef.current.onNodeHover}
-      onNodeClick={hooksRef.current.onNodeClick}
+      nodeColor={nodeColor}
+      onNodeHover={onNodeHover}
+      onNodeClick={onNodeClick}
     />
   );
 }
