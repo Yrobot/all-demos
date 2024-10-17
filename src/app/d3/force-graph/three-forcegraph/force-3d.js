@@ -3,7 +3,22 @@ import ThreeForceGraph from "@/libs/three-forcegraph";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
 export default ({ graphData }) => {
-  const Graph = new ThreeForceGraph().graphData(graphData).nodeResolution(24);
+  const Graph = new ThreeForceGraph()
+    .graphData(graphData)
+    .nodeResolution(24)
+    .nodeColor((node, level) => {
+      const id = node.id;
+      let color = null;
+
+      Object.entries({
+        "#FB5A5A": ["1", "12", "2", "22", "23"],
+        "#FF991F": ["13", "3", "31"],
+      }).forEach(([colorCode, ids]) => {
+        if (!!color) return;
+        if (ids.includes(id)) color = colorCode;
+      });
+      return color ?? "#05B4A2";
+    });
   const len = graphData.nodes.length;
 
   // Setup renderer

@@ -189,22 +189,18 @@ export const loopLevelScene = ({
           // const opacity = state.nodeOpacity * colorAlpha(color);
 
           if (
-            obj.material.type !== "MeshLambertMaterial" ||
+            !obj?.material?.color ||
             !obj.material.color.equals(materialColor) ||
-            obj.material.opacity !== opacity
+            obj.material?.opacity !== opacity
           ) {
-            if (!sphereMaterials.hasOwnProperty(color)) {
-              sphereMaterials[color] = new three.MeshLambertMaterial({
-                color: materialColor,
-                opacity,
-                transparent: true,
-                depthWrite: false,
-                // depthTest: true,
-              });
-            }
-
-            obj.material.dispose();
-            obj.material = sphereMaterials[color];
+            if (obj.material) obj.material.dispose();
+            obj.material = new three.MeshLambertMaterial({
+              color: materialColor,
+              opacity,
+              transparent: true,
+              depthWrite: false,
+              // depthTest: true,
+            });
           }
         }
       },

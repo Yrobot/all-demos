@@ -74,6 +74,20 @@ const data = {
   ],
 };
 
+const getNodeColor = (node: any, level: number) => {
+  const id = node.id;
+  let color: string | null = null;
+
+  Object.entries({
+    "#FB5A5A": ["1", "12", "2", "22", "23"],
+    "#FF991F": ["13", "3", "31"],
+  }).forEach(([colorCode, ids]) => {
+    if (!!color) return;
+    if (ids.includes(id)) color = colorCode;
+  });
+  return color ?? "#05B4A2";
+};
+
 function View() {
   const fgRef = useRef<any>(null);
 
@@ -116,7 +130,9 @@ function View() {
       linkDirectionalParticles={(link) => 8}
       linkDirectionalArrowRelPos={() => 1}
       nodeColor={(node, level) => {
-        return ["#219ebc", "#ffb703"][level];
+        const color = getNodeColor(node, level);
+        // console.log(node.id, color);
+        return color;
       }}
       onNodeHover={(node) => {
         console.log(`onNodeHover [${node?.id}]`, node);
