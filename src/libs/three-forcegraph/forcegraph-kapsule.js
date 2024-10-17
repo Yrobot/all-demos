@@ -60,7 +60,7 @@ import {
 } from "./utils/color-utils";
 
 import {
-  loopLevelScene,
+  loopInitLevelScene,
   loopData,
   getLayout,
   setLayout,
@@ -430,23 +430,41 @@ export default Kapsule({
     const hasAnyPropChanged = (propList) =>
       propList.some((p) => changedProps.hasOwnProperty(p));
 
-    state.engineRunning = false; // pause simulation
-    state.onUpdate();
+    const isD3Sim = state.forceEngine !== "ngraph";
 
-    loopLevelScene({
-      data: state.graphData,
-      state,
-      hasAnyPropChanged,
-      group: state.graphScene,
-      changedProps,
-    });
+    if (hasAnyPropChanged(["graphData"])) {
+      state.engineRunning = false; // pause simulation
+      state.onUpdate();
 
-    state._flushObjects = false; // reset objects refresh flag
+      loopInitLevelScene({
+        data: state.graphData,
+        state,
+        hasAnyPropChanged,
+        group: state.graphScene,
+        changedProps,
+      });
 
-    this.resetCountdown();
+      state._flushObjects = false; // reset objects refresh flag
 
-    state.engineRunning = true; // resume simulation
+      this.resetCountdown();
 
-    state.onFinishUpdate();
+      state.engineRunning = true; // resume simulation
+
+      state.onFinishUpdate();
+    } else if (
+      hasAnyPropChanged([
+        "linkWidth",
+        "linkColor",
+        "linkDirectionalArrowLength",
+        "linkDirectionalParticles",
+        "nodeColor",
+      ])
+    ) {
+      tickLevelLayout({
+        data: state.graphData,
+        state,
+        isD3Sim,
+      });
+    }
   },
 });
