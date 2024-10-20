@@ -87,7 +87,10 @@ export interface ForceGraphProps<NodeType = {}, LinkType = {}>
   nodeAutoColorBy?: NodeAccessor<NodeType, string | null>;
   nodeOpacity?: number;
   nodeResolution?: number;
-  nodeThreeObject?: NodeAccessor<NodeType, Object3D>;
+  nodeThreeObject?:
+    | Object3D
+    | null
+    | ((obj: NodeType, isCurrentLevel: boolean) => Object3D | null);
   nodeThreeObjectExtend?: NodeAccessor<NodeType, boolean>;
 
   // Link styling

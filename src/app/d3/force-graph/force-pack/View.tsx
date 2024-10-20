@@ -1,6 +1,7 @@
 "use client";
 import React, { useRef, useCallback, useState } from "react";
 import ForceGraph3D from "@/libs/force-graph";
+import SpriteText from "three-spritetext";
 
 const data = {
   nodes: [
@@ -72,6 +73,12 @@ const data = {
     { target: "2", source: "0" },
     { target: "3", source: "2" },
   ],
+};
+
+const getTextHeight = (text = "") => {
+  if (text?.length > 6) return 2;
+  if (text?.length > 4) return 3;
+  return 4;
 };
 
 const getNodeColor = (
@@ -216,6 +223,18 @@ function View() {
 
   const nodeLabel = useCallback((node: any) => node.id, []);
 
+  const nodeThreeObject = useCallback(
+    (node: any, isCurrentLevel: boolean = false) => {
+      if (!isCurrentLevel) return null;
+      const sprite = new SpriteText(node?.id);
+      // sprite.center.set(0.5, 3.5); // set the text position
+      sprite.textHeight = getTextHeight(node?.data?.shortName);
+      sprite.color = "white";
+      return sprite;
+    },
+    []
+  );
+
   return (
     <ForceGraph3D
       ref={fgRef}
@@ -226,6 +245,7 @@ function View() {
       nodeResolution={24}
       nodeRelSize={6}
       nodeThreeObjectExtend
+      nodeThreeObject={nodeThreeObject}
       // link style
       linkWidth={linkWidth}
       linkColor={"#05B4A2"}

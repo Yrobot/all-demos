@@ -156,7 +156,10 @@ export const loopInitLevelScene = ({
         ]),
       objFilter: (obj) => obj.__graphObjType === "node",
       createObj: (node) => {
-        let customObj = customObjectAccessor(node);
+        let customObj = customObjectAccessor(
+          node,
+          state.displayLevel === level
+        );
         const extendObj = customObjectExtendAccessor(node);
 
         if (customObj && state.nodeThreeObject === customObj) {
@@ -826,9 +829,10 @@ const levelNodesStyle = ({ data, state, level = 0 }) => {
   const displayLevel = state.displayLevel || 0;
 
   const nodeThreeObjectExtendAccessor = accessorFn(state.nodeThreeObjectExtend);
+  const customObjectAccessor = accessorFn(state.nodeThreeObject);
 
   data.nodes.forEach((node) => {
-    const obj = node.__threeObj;
+    let obj = node.__threeObj;
     if (!obj) return;
 
     const pos = isD3Sim
@@ -850,6 +854,19 @@ const levelNodesStyle = ({ data, state, level = 0 }) => {
       obj.position.x = pos.x;
       obj.position.y = pos.y || 0;
       obj.position.z = pos.z || 0;
+    }
+
+    const isCurrentLevel = displayLevel === level;
+
+    let customObj = customObjectAccessor(node, isCurrentLevel);
+
+    if (customObj && !extendedObj) {
+      obj = customObj;
+    } else {
+      obj?.clear?.();
+      if (customObj && extendedObj) {
+        obj.add(customObj); // extend default with custom
+      }
     }
 
     // update node mesh
