@@ -45,7 +45,7 @@ const getLinkPoints = ({ link, isD3Sim, radius }) => {
     !startNode.hasOwnProperty("x") ||
     !endNode.hasOwnProperty("x")
   )
-    return; // skip invalid link
+    return []; // skip invalid link
 
   // get sphere intersection points as link start and end
   const [start, end] = getSphereIntersectionPoints({
@@ -96,10 +96,6 @@ export const loopInitLevelScene = ({
     );
   })();
   data.radius = radius;
-  const linkLen = radiusToLinkLen(radius) - radius * 2;
-  const color = getHexColor(level);
-  const linkColor = "#f0f0f0";
-  const opacity = 1;
   setGroup(data, group);
 
   if (
@@ -149,7 +145,8 @@ export const loopInitLevelScene = ({
     const sphereGeometries = {}; // indexed by node value
     const sphereMaterials = {}; // indexed by color
 
-    threeDigest(data.nodes.filter(visibilityAccessor), group, {
+    threeDigest(data.nodes, group, {
+      // threeDigest(data.nodes.filter(visibilityAccessor), group, {
       purge:
         state._flushObjects ||
         hasAnyPropChanged([
@@ -190,6 +187,7 @@ export const loopInitLevelScene = ({
         return obj;
       },
       updateObj: (obj, node) => {
+        // return;
         if (obj.__graphDefaultObj) {
           // bypass internal updates for custom node objects
           const val = valAccessor(node) || 1;
@@ -214,9 +212,9 @@ export const loopInitLevelScene = ({
           }
 
           const materialColor = new three.Color(
-            colorStr2Hex(colorAccessor(node, level) || color || "#ffffaa")
+            colorStr2Hex(colorAccessor(node, level) || "#ffffaa")
           );
-          // const opacity = state.nodeOpacity * colorAlpha(color);
+          const opacity = 1;
 
           if (
             !obj?.material?.color ||
@@ -270,7 +268,8 @@ export const loopInitLevelScene = ({
     const lambertLineMaterials = {}; // for cylinder objects, indexed by link color
     const basicLineMaterials = {}; // for line objects, indexed by link color
 
-    const visibleLinks = data.links.filter(visibilityAccessor);
+    const visibleLinks = data.links;
+    // const visibleLinks = data.links.filter(visibilityAccessor);
 
     // lines digest cycle
     threeDigest(visibleLinks, group, {
@@ -348,6 +347,7 @@ export const loopInitLevelScene = ({
         return obj;
       },
       updateObj: (updObj, link) => {
+        // return;
         if (updObj.__graphDefaultObj) {
           // bypass internal updates for custom link objects
           // select default object if it's an extended group
@@ -393,7 +393,7 @@ export const loopInitLevelScene = ({
           if (customMaterial) {
             obj.material = customMaterial;
           } else {
-            const color = colorAccessor(link, level) || linkColor;
+            const color = colorAccessor(link, level);
             const materialColor = new three.Color(
               colorStr2Hex(color || "#f0f0f0")
             );
@@ -453,6 +453,7 @@ export const loopInitLevelScene = ({
           return obj;
         },
         updateObj: (obj, link) => {
+          // return;
           // const arrowLength = arrowLengthAccessor(link);
           const arrowLength = Math.min(MIN_RADIUS, radius / 2);
           const numSegments = state.linkDirectionalArrowResolution;
@@ -499,6 +500,7 @@ export const loopInitLevelScene = ({
 
       const particleMaterials = {}; // indexed by link color
       const particleGeometries = {}; // indexed by particle width
+      const linkLen = radiusToLinkLen(radius) - radius * 2;
 
       threeDigest(visibleLinks.filter(particlesAccessor), group, {
         objBindAttr: "__photonsObj",
@@ -510,6 +512,7 @@ export const loopInitLevelScene = ({
           return obj;
         },
         updateObj: (obj, link) => {
+          // return;
           const numPhotons = Math.round(linkLen / 6);
 
           const curPhoton = !!obj.children.length && obj.children[0];
@@ -867,6 +870,7 @@ const levelNodesStyle = ({ data, state, level = 0 }) => {
 const levelLinksStyle = ({ data, state, level = 0 }) => {
   const isD3Sim = state.forceEngine !== "ngraph";
 
+  // update link Meth
   const customObjectAccessor = accessorFn(state.linkThreeObject);
   const customObjectExtendAccessor = accessorFn(state.linkThreeObjectExtend);
   const customMaterialAccessor = accessorFn(state.linkMaterial);
@@ -881,6 +885,11 @@ const levelLinksStyle = ({ data, state, level = 0 }) => {
   const updateLinkMesh = (link) => {
     const obj = link.__lineObj;
     if (!obj) return;
+    const linkVisibility = visibilityAccessor(link);
+    if (!linkVisibility) {
+      obj.visible = false;
+      return;
+    }
     const linkWidth = Math.ceil(widthAccessor(link) * 10) / 10;
     const useCylinder = !!linkWidth;
 
@@ -945,7 +954,8 @@ const levelLinksStyle = ({ data, state, level = 0 }) => {
         }
 
         obj.material.dispose();
-        obj.material = lineMaterials[color];
+        obj.material.color = materialColor;
+        obj.material.opacity = opacity;
       }
     }
   };
@@ -956,278 +966,20 @@ const levelLinksStyle = ({ data, state, level = 0 }) => {
   const linkCurveRotationAccessor = accessorFn(state.linkCurveRotation);
   const linkThreeObjectExtendAccessor = accessorFn(state.linkThreeObjectExtend);
 
-  function calcLinkCurve(link) {
-    // get sphere intersection points as link start and end
-    const [start, end] = getLinkPoints({ link, isD3Sim, radius: data.radius });
-
-    const curvature = linkCurvatureAccessor(link);
-
-    if (!curvature) {
-      link.__curve = null; // Straight line
-    } else {
-      // bezier curve line (only for line types)
-      const vStart = new three.Vector3(start.x, start.y || 0, start.z || 0);
-      const vEnd = new three.Vector3(end.x, end.y || 0, end.z || 0);
-
-      const l = vStart.distanceTo(vEnd); // line length
-
-      let curve;
-      const curveRotation = linkCurveRotationAccessor(link);
-
-      if (l > 0) {
-        const dx = end.x - start.x;
-        const dy = end.y - start.y || 0;
-
-        const vLine = new three.Vector3().subVectors(vEnd, vStart);
-
-        const cp = vLine
-          .clone()
-          .multiplyScalar(curvature)
-          .cross(
-            dx !== 0 || dy !== 0
-              ? new three.Vector3(0, 0, 1)
-              : new three.Vector3(0, 1, 0)
-          ) // avoid cross-product of parallel vectors (prefer Z, fallback to Y)
-          .applyAxisAngle(vLine.normalize(), curveRotation) // rotate along line axis according to linkCurveRotation
-          .add(new three.Vector3().addVectors(vStart, vEnd).divideScalar(2));
-
-        curve = new three.QuadraticBezierCurve3(vStart, cp, vEnd);
-      } else {
-        // Same point, draw a loop
-        const d = curvature * 70;
-        const endAngle = -curveRotation; // Rotate clockwise (from Z angle perspective)
-        const startAngle = endAngle + Math.PI / 2;
-
-        curve = new three.CubicBezierCurve3(
-          vStart,
-          new three.Vector3(
-            d * Math.cos(startAngle),
-            d * Math.sin(startAngle),
-            0
-          ).add(vStart),
-          new three.Vector3(
-            d * Math.cos(endAngle),
-            d * Math.sin(endAngle),
-            0
-          ).add(vStart),
-          vEnd
-        );
-      }
-
-      link.__curve = curve;
-    }
-  }
-
-  data.links.forEach((link) => {
+  const updateLinkPosition = (link) => {
     const lineObj = link.__lineObj;
     if (!lineObj) return;
-
     // get sphere intersection points as link start and end
-    const [start, end] = getLinkPoints({ link, isD3Sim, radius: data.radius });
-
-    calcLinkCurve(link); // calculate link curve for all links, including custom replaced, so it can be used in directional functionality
-
-    const extendedObj = linkThreeObjectExtendAccessor(link);
-    state?.linkPositionUpdate?.(
-      extendedObj ? lineObj.children[1] : lineObj, // pass child custom object if extending the default
-      {
-        start: { x: start.x, y: start.y, z: start.z },
-        end: { x: end.x, y: end.y, z: end.z },
-      },
-      link
-    );
-
-    const curveResolution = 30; // # line segments
-    const curve = link.__curve;
-
-    // select default line obj if it's an extended group
-    const line = lineObj.children.length ? lineObj.children[0] : lineObj;
-
-    if (line.type === "Line") {
-      // Update line geometry
-      if (!curve) {
-        // straight line
-        let linePos = line.geometry.getAttribute("position");
-        if (!linePos || !linePos.array || linePos.array.length !== 6) {
-          line.geometry[setAttributeFn](
-            "position",
-            (linePos = new three.BufferAttribute(new Float32Array(2 * 3), 3))
-          );
-        }
-
-        linePos.array[0] = start.x;
-        linePos.array[1] = start.y || 0;
-        linePos.array[2] = start.z || 0;
-        linePos.array[3] = end.x;
-        linePos.array[4] = end.y || 0;
-        linePos.array[5] = end.z || 0;
-
-        linePos.needsUpdate = true;
-      } else {
-        // bezier curve line
-        line.geometry.setFromPoints(curve.getPoints(curveResolution));
-      }
-      line.geometry.computeBoundingSphere();
-    } else if (line.type === "Mesh") {
-      // Update cylinder geometry
-
-      if (!curve) {
-        // straight tube
-        if (!line.geometry.type.match(/^Cylinder(Buffer)?Geometry$/)) {
-          const linkWidth = Math.ceil(linkWidthAccessor(link) * 10) / 10;
-          const r = linkWidth / 2;
-
-          const geometry = new three.CylinderGeometry(
-            r,
-            r,
-            1,
-            state.linkResolution,
-            1,
-            false
-          );
-          geometry[applyMatrix4Fn](
-            new three.Matrix4().makeTranslation(0, 1 / 2, 0)
-          );
-          geometry[applyMatrix4Fn](
-            new three.Matrix4().makeRotationX(Math.PI / 2)
-          );
-
-          line.geometry.dispose();
-          line.geometry = geometry;
-        }
-
-        const vStart = new three.Vector3(start.x, start.y || 0, start.z || 0);
-        const vEnd = new three.Vector3(end.x, end.y || 0, end.z || 0);
-        const distance = vStart.distanceTo(vEnd);
-
-        line.position.x = vStart.x;
-        line.position.y = vStart.y;
-        line.position.z = vStart.z;
-
-        line.scale.z = distance;
-
-        line.parent.localToWorld(vEnd); // lookAt requires world coords
-        line.lookAt(vEnd);
-      } else {
-        // curved tube
-        if (!line.geometry.type.match(/^Tube(Buffer)?Geometry$/)) {
-          // reset object positioning
-          line.position.set(0, 0, 0);
-          line.rotation.set(0, 0, 0);
-          line.scale.set(1, 1, 1);
-        }
-
-        const linkWidth = Math.ceil(linkWidthAccessor(link) * 10) / 10;
-        const r = linkWidth / 2;
-
-        const geometry = new three.TubeGeometry(
-          curve,
-          curveResolution,
-          r,
-          state.linkResolution,
-          false
-        );
-
-        line.geometry.dispose();
-        line.geometry = geometry;
-      }
-    }
-
-    // update node mesh
-    updateLinkMesh(link);
-  });
-};
-
-export const loopLevelDisplay = ({ data, state, level = 0, loop = true }) => {
-  const displayLevel = state.displayLevel || 0;
-  const isDisplayLevel = level <= displayLevel;
-  const groupObj = getGroup(data, () => null);
-  if (groupObj) groupObj.visible = isDisplayLevel;
-
-  if (isDisplayLevel)
-    levelNodesStyle({
-      data,
-      state,
-      level,
+    const [start, end] = getLinkPoints({
+      link,
+      isD3Sim,
+      radius: data.radius,
     });
-
-  if (isDisplayLevel)
-    levelLinksStyle({
-      data,
-      state,
-      level,
-    });
-
-  if (loop)
-    loopData(data, (node, parentNode) => {
-      loopLevelDisplay({
-        data: node,
-        state,
-        level: level + 1,
-      });
-    });
-};
-
-export const tickLevelLayout = ({
-  data,
-  state,
-  isD3Sim,
-  parentNode,
-  level = 0,
-}) => {
-  // const displayLevel = state.displayLevel || 0;
-  // const isDisplayLevel = level <= displayLevel;
-  const groupObj = getGroup(data, () => null);
-  // if (groupObj) groupObj.visible = isDisplayLevel;
-  if (groupObj) setGroupCenter(groupObj, getNodePosition(parentNode));
-
-  loopLevelDisplay({ data, state, level, loop: false });
-
-  // Update links position
-  const linkWidthAccessor = accessorFn(state.linkWidth);
-  const linkCurvatureAccessor = accessorFn(state.linkCurvature);
-  const linkCurveRotationAccessor = accessorFn(state.linkCurveRotation);
-  const linkThreeObjectExtendAccessor = accessorFn(state.linkThreeObjectExtend);
-  data.links.forEach((link) => {
-    const lineObj = link.__lineObj;
-    if (!lineObj) return;
-
-    const pos = isD3Sim
-      ? link
-      : getLayout(data).getLinkPosition(
-          getLayout(data).graph.getLink(link.source, link.target).id
-        );
-    const startNode = pos[isD3Sim ? "source" : "from"];
-    const endNode = pos[isD3Sim ? "target" : "to"];
-
-    if (
-      !startNode ||
-      !endNode ||
-      !startNode.hasOwnProperty("x") ||
-      !endNode.hasOwnProperty("x")
-    )
-      return; // skip invalid link
-
-    const radius = data.radius || MIN_RADIUS;
-
-    // get sphere intersection points as link start and end
-    const [start, end] = getSphereIntersectionPoints({
-      c1: [startNode.x, startNode.y, startNode.z],
-      c2: [endNode.x, endNode.y, endNode.z],
-      r1: radius,
-      r2: radius,
-    }).map(([x, y, z]) => ({
-      x,
-      y,
-      z,
-    }));
-
-    calcLinkCurve(link); // calculate link curve for all links, including custom replaced, so it can be used in directional functionality
+    if (start === null) return;
 
     const extendedObj = linkThreeObjectExtendAccessor(link);
     if (
-      state.linkPositionUpdate &&
-      state.linkPositionUpdate(
+      state?.linkPositionUpdate?.(
         extendedObj ? lineObj.children[1] : lineObj, // pass child custom object if extending the default
         {
           start: { x: start.x, y: start.y, z: start.z },
@@ -1336,38 +1088,12 @@ export const tickLevelLayout = ({
         line.geometry = geometry;
       }
     }
-  });
+  };
 
   function calcLinkCurve(link) {
-    const pos = isD3Sim
-      ? link
-      : getLayout(data).getLinkPosition(
-          getLayout(data).graph.getLink(link.source, link.target).id
-        );
-    const startNode = pos[isD3Sim ? "source" : "from"];
-    const endNode = pos[isD3Sim ? "target" : "to"];
-
-    if (
-      !startNode ||
-      !endNode ||
-      !startNode.hasOwnProperty("x") ||
-      !endNode.hasOwnProperty("x")
-    )
-      return; // skip invalid link
-
-    const radius = data.radius || MIN_RADIUS;
-
     // get sphere intersection points as link start and end
-    const [start, end] = getSphereIntersectionPoints({
-      c1: [startNode.x, startNode.y, startNode.z],
-      c2: [endNode.x, endNode.y, endNode.z],
-      r1: radius,
-      r2: radius,
-    }).map(([x, y, z]) => ({
-      x,
-      y,
-      z,
-    }));
+    const [start, end] = getLinkPoints({ link, isD3Sim, radius: data.radius });
+    if (start === null) return;
 
     const curvature = linkCurvatureAccessor(link);
 
@@ -1427,6 +1153,183 @@ export const tickLevelLayout = ({
     }
   }
 
+  // update link Arr
+  const arrowLengthAccessor = accessorFn(state.linkDirectionalArrowLength);
+  const arrowColorAccessor = accessorFn(state.linkDirectionalArrowColor);
+
+  const updateLinkArr = (link) => {
+    const obj = link.__arrowObj;
+    if (!obj) return;
+    const linkLen = arrowLengthAccessor(link);
+    obj.visible = !!linkLen;
+    if (!linkLen) return;
+    const arrowLength = link.__arrowLength;
+    const numSegments = state.linkDirectionalArrowResolution;
+
+    if (
+      !obj.geometry.type.match(/^Cone(Buffer)?Geometry$/) ||
+      obj.geometry.parameters.height !== arrowLength ||
+      obj.geometry.parameters.radialSegments !== numSegments
+    ) {
+      const coneGeometry = new three.ConeGeometry(
+        arrowLength * 0.25,
+        arrowLength,
+        numSegments
+      );
+      // Correct orientation
+      coneGeometry.translate(0, arrowLength / 2, 0);
+      coneGeometry.rotateX(Math.PI / 2);
+
+      obj.geometry.dispose();
+      obj.geometry = coneGeometry;
+    }
+
+    const arrowColor =
+      arrowColorAccessor(link) || colorAccessor(link) || "#f0f0f0";
+    obj.material.color = new three.Color(colorStr2Hex(arrowColor));
+    obj.material.opacity = state.linkOpacity * 3 * colorAlpha(arrowColor);
+  };
+
+  // Photon particles digest cycle
+
+  const particlesAccessor = accessorFn(state.linkDirectionalParticles);
+  const particleWidthAccessor = accessorFn(state.linkDirectionalParticleWidth);
+  const particleColorAccessor = accessorFn(state.linkDirectionalParticleColor);
+  const updateLinkPhotons = (link) => {
+    const obj = link.__photonsObj;
+    if (!obj) return;
+    obj?.clear?.();
+    const photonLen = particlesAccessor(link);
+    obj.visible = !!linkLen;
+    if (!photonLen) return;
+    const particleMaterials = {}; // indexed by link color
+    const particleGeometries = {}; // indexed by particle width
+    const numPhotons = Math.round(linkLen / 6);
+
+    const curPhoton = !!obj.children.length && obj.children[0];
+
+    const photonR = Math.ceil(particleWidthAccessor(link) * 10) / 10 / 2;
+    const numSegments = state.linkDirectionalParticleResolution;
+
+    let particleGeometry;
+    if (
+      curPhoton &&
+      curPhoton.geometry.parameters.radius === photonR &&
+      curPhoton.geometry.parameters.widthSegments === numSegments
+    ) {
+      particleGeometry = curPhoton.geometry;
+    } else {
+      if (!particleGeometries.hasOwnProperty(photonR)) {
+        particleGeometries[photonR] = new three.SphereGeometry(
+          photonR,
+          numSegments,
+          numSegments
+        );
+      }
+      particleGeometry = particleGeometries[photonR];
+
+      curPhoton && curPhoton.geometry.dispose();
+    }
+
+    const photonColor =
+      particleColorAccessor(link) || colorAccessor(link) || "#f0f0f0";
+    const materialColor = new three.Color(colorStr2Hex(photonColor));
+    const opacity = state.linkOpacity * 3;
+
+    let particleMaterial;
+    if (
+      curPhoton &&
+      curPhoton.material.color.equals(materialColor) &&
+      curPhoton.material.opacity === opacity
+    ) {
+      particleMaterial = curPhoton.material;
+    } else {
+      if (!particleMaterials.hasOwnProperty(photonColor)) {
+        particleMaterials[photonColor] = new three.MeshLambertMaterial({
+          color: materialColor,
+          transparent: true,
+          opacity,
+          depthWrite: false,
+        });
+      }
+      particleMaterial = particleMaterials[photonColor];
+
+      curPhoton && curPhoton.material.dispose();
+    }
+    // digest cycle for each photon
+    threeDigest(
+      [...new Array(numPhotons)].map((_, idx) => ({ idx })),
+      obj,
+      {
+        idAccessor: (d) => d.idx,
+        createObj: () => new three.Mesh(particleGeometry, particleMaterial),
+        updateObj: (obj) => {
+          obj.geometry = particleGeometry;
+          obj.material = particleMaterial;
+        },
+      }
+    );
+  };
+
+  data.links.forEach((link) => {
+    calcLinkCurve(link); // calculate link curve for all links, including custom replaced, so it can be used in directional functionality
+
+    updateLinkPosition(link);
+
+    // updateLinkArr(link);
+
+    // updateLinkPhotons(link);
+
+    // update node mesh
+    // updateLinkMesh(link);
+  });
+};
+
+export const loopLevelDisplay = ({ data, state, level = 0, loop = true }) => {
+  const displayLevel = state.displayLevel || 0;
+  const isDisplayLevel = level <= displayLevel;
+  const groupObj = getGroup(data, () => null);
+  if (groupObj) groupObj.visible = isDisplayLevel;
+
+  // if (isDisplayLevel)
+  levelNodesStyle({
+    data,
+    state,
+    level,
+  });
+
+  // if (isDisplayLevel)
+  levelLinksStyle({
+    data,
+    state,
+    level,
+  });
+
+  if (loop)
+    loopData(data, (node, parentNode) => {
+      loopLevelDisplay({
+        data: node,
+        state,
+        level: level + 1,
+      });
+    });
+};
+
+export const tickLevelLayout = ({
+  data,
+  state,
+  isD3Sim,
+  parentNode,
+  level = 0,
+}) => {
+  // const displayLevel = state.displayLevel || 0;
+  // const isDisplayLevel = level <= displayLevel;
+  const groupObj = getGroup(data, () => null);
+  // if (groupObj) groupObj.visible = isDisplayLevel;
+  if (groupObj) setGroupCenter(groupObj, getNodePosition(parentNode));
+
+  loopLevelDisplay({ data, state, level, loop: false });
+
   loopData(data, (node, parentNode) => {
     // node.center = getNodePosition(parentNode);
     tickLevelLayout({
@@ -1449,35 +1352,14 @@ export const loopLinkArrows = ({ data, state, level = 0, isD3Sim = true }) => {
     const arrowObj = link.__arrowObj;
     if (!arrowObj) return;
 
-    const pos = isD3Sim
-      ? link
-      : getLayout(data).getLinkPosition(
-          getLayout(data).graph?.getLink(link.source, link.target).id
-        );
-    const startNode = pos[isD3Sim ? "source" : "from"];
-    const endNode = pos[isD3Sim ? "target" : "to"];
-
-    if (
-      !startNode ||
-      !endNode ||
-      !startNode.hasOwnProperty("x") ||
-      !endNode.hasOwnProperty("x")
-    )
-      return; // skip invalid link
-
-    const radius = data.radius || MIN_RADIUS;
-
     // get sphere intersection points as link start and end
-    const [start, end] = getSphereIntersectionPoints({
-      c1: [startNode.x, startNode.y, startNode.z],
-      c2: [endNode.x, endNode.y, endNode.z],
-      r1: radius,
-      r2: radius,
-    }).map(([x, y, z]) => ({
-      x,
-      y,
-      z,
-    }));
+    const [start, end] = getLinkPoints({
+      link,
+      isD3Sim,
+      radius: data.radius,
+    });
+
+    if (start === null) return;
 
     // const startR =
     //   Math.cbrt(Math.max(0, nodeValAccessor(start) || 1)) * state.nodeRelSize;
@@ -1550,35 +1432,9 @@ export const loopLinkPhotons = ({ data, state, level = 0, isD3Sim = true }) => {
     )
       return;
 
-    const pos = isD3Sim
-      ? link
-      : getLayout(data).getLinkPosition(
-          getLayout(data).graph.getLink(link.source, link.target).id
-        );
-    const startNode = pos[isD3Sim ? "source" : "from"];
-    const endNode = pos[isD3Sim ? "target" : "to"];
-
-    if (
-      !startNode ||
-      !endNode ||
-      !startNode.hasOwnProperty("x") ||
-      !endNode.hasOwnProperty("x")
-    )
-      return; // skip invalid link
-
-    const radius = data.radius || MIN_RADIUS;
-
     // get sphere intersection points as link start and end
-    const [start, end] = getSphereIntersectionPoints({
-      c1: [startNode.x, startNode.y, startNode.z],
-      c2: [endNode.x, endNode.y, endNode.z],
-      r1: radius,
-      r2: radius,
-    }).map(([x, y, z]) => ({
-      x,
-      y,
-      z,
-    }));
+    const [start, end] = getLinkPoints({ link, isD3Sim, radius: data.radius });
+    if (start === null) return;
 
     const particleSpeed = particleSpeedAccessor(link);
 

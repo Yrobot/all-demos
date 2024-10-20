@@ -443,6 +443,11 @@ export default Kapsule({
         group: state.graphScene,
         changedProps,
       });
+      // tickLevelLayout({
+      //   data: state.graphData,
+      //   state,
+      //   isD3Sim,
+      // });
 
       state._flushObjects = false; // reset objects refresh flag
 
@@ -451,15 +456,7 @@ export default Kapsule({
       state.engineRunning = true; // resume simulation
 
       state.onFinishUpdate();
-    } else if (
-      hasAnyPropChanged([
-        "linkWidth",
-        "linkColor",
-        "linkDirectionalArrowLength",
-        "linkDirectionalParticles",
-        "nodeColor",
-      ])
-    ) {
+    } else {
       tickLevelLayout({
         data: state.graphData,
         state,

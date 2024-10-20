@@ -167,6 +167,16 @@ function View() {
     [getNodeColor, hoverNode?.id, selectedNode?.id]
   );
 
+  const linkColor = useCallback(
+    (link: any) =>
+      [link.source.id, link.target.id].some((id) =>
+        [hoverNode?.id, selectedNode?.id].includes(id)
+      )
+        ? "#3DD598"
+        : "#05B4A2",
+    [(hoverNode?.id, selectedNode?.id)]
+  );
+
   const onNodeClick = useCallback(
     (node: any) => {
       console.log(`onNodeClick [${node?.id}]`, node);
@@ -218,7 +228,8 @@ function View() {
       nodeThreeObjectExtend
       // link style
       linkWidth={linkWidth}
-      linkColor="#05B4A2"
+      linkColor={"#05B4A2"}
+      // linkColor={linkColor}
       linkOpacity={0.5}
       linkCurvature={0.1}
       linkDirectionalArrowLength={linkDirectionalArrowLength}
