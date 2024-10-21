@@ -258,6 +258,38 @@ export default Kapsule({
     infoElem.className = "graph-info-msg";
     infoElem.textContent = "";
 
+    const dragObjs = [];
+
+    const setDrags = (list) => {
+      dragObjs.length = 0;
+      dragObjs.push(...list);
+    };
+
+    const dataRef = {
+      initZoom: 0,
+    };
+
+    const calcDisplayLevel = () => {
+      if (dataRef.initZoom === 0) return;
+      const currentZoom = controls.target.distanceTo(controls.object.position);
+      const zoom = dataRef.initZoom / currentZoom;
+      const displayLevel = zoom > 1.4 ? 1 : 0;
+      if (displayLevel !== state.displayLevel) {
+        // console.log("displayLevel", state.displayLevel, displayLevel);
+        this.displayLevel(displayLevel);
+        setDrags(
+          getListenDragNodes(state)
+            .map((node) => node.__threeObj)
+            .filter((obj) => obj)
+        );
+        // console.log(dragObjs);
+      }
+    };
+
+    controls.addEventListener("change", () => {
+      calcDisplayLevel();
+    });
+
     // config forcegraph
     state.forceGraph
       .onLoading(() => {
@@ -298,160 +330,130 @@ export default Kapsule({
           state._dragControls = undefined;
         }
 
-        if (
-          state.enableNodeDrag &&
-          state.enablePointerInteraction &&
-          state.forceEngine === "d3"
-        ) {
-          let dragObjs = getListenDragNodes(state)
+        if (dataRef.initZoom === 0)
+          dataRef.initZoom = controls.target.distanceTo(
+            controls.object.position
+          );
+        setDrags(
+          getListenDragNodes(state)
             .map((node) => node.__threeObj)
-            .filter((obj) => obj);
-          // let dragObjs = [];
-          // Can't access node positions programmatically in ngraph
-          const dragControls = (state._dragControls = new ThreeDragControls(
-            dragObjs,
-            camera,
-            renderer.domElement
-          ));
+            .filter((obj) => obj)
+        );
+        calcDisplayLevel();
 
-          dragControls.addEventListener("dragstart", function (event) {
-            controls.enabled = false; // Disable controls while dragging
+        const dragControls = (state._dragControls = new ThreeDragControls(
+          dragObjs,
+          camera,
+          renderer.domElement
+        ));
 
-            // track drag object movement
-            event.object.__initialPos = event.object.position.clone();
-            event.object.__prevPos = event.object.position.clone();
+        dragControls.addEventListener("dragstart", function (event) {
+          controls.enabled = false; // Disable controls while dragging
 
-            const node = getGraphObj(event.object).__data;
-            !node.__initialFixedPos &&
-              (node.__initialFixedPos = {
-                fx: node.fx,
-                fy: node.fy,
-                fz: node.fz,
-              });
-            !node.__initialPos &&
-              (node.__initialPos = { x: node.x, y: node.y, z: node.z });
+          // track drag object movement
+          event.object.__initialPos = event.object.position.clone();
+          event.object.__prevPos = event.object.position.clone();
 
-            // lock node
-            ["x", "y", "z"].forEach((c) => (node[`f${c}`] = node[c]));
+          const node = getGraphObj(event.object).__data;
+          !node.__initialFixedPos &&
+            (node.__initialFixedPos = {
+              fx: node.fx,
+              fy: node.fy,
+              fz: node.fz,
+            });
+          !node.__initialPos &&
+            (node.__initialPos = { x: node.x, y: node.y, z: node.z });
 
-            // drag cursor
-            renderer.domElement.classList.add("grabbable");
-          });
+          // lock node
+          ["x", "y", "z"].forEach((c) => (node[`f${c}`] = node[c]));
 
-          dragControls.addEventListener("drag", function (event) {
-            const nodeObj = getGraphObj(event.object);
+          // drag cursor
+          renderer.domElement.classList.add("grabbable");
+        });
 
-            if (!event.object.hasOwnProperty("__graphObjType")) {
-              // If dragging a child of the node, update the node object instead
-              const initPos = event.object.__initialPos;
-              const prevPos = event.object.__prevPos;
-              const newPos = event.object.position;
+        dragControls.addEventListener("drag", function (event) {
+          const nodeObj = getGraphObj(event.object);
 
-              nodeObj.position.add(newPos.clone().sub(prevPos)); // translate node object by the motion delta
-              prevPos.copy(newPos);
-              newPos.copy(initPos); // reset child back to its initial position
-            }
+          if (!event.object.hasOwnProperty("__graphObjType")) {
+            // If dragging a child of the node, update the node object instead
+            const initPos = event.object.__initialPos;
+            const prevPos = event.object.__prevPos;
+            const newPos = event.object.position;
 
-            const node = nodeObj.__data;
-            const newPos = nodeObj.position;
-            const translate = {
-              x: newPos.x - node.x,
-              y: newPos.y - node.y,
-              z: newPos.z - node.z,
-            };
-            // Move fx/fy/fz (and x/y/z) of nodes based on object new position
-            ["x", "y", "z"].forEach(
-              (c) => (node[`f${c}`] = node[c] = newPos[c])
-            );
+            nodeObj.position.add(newPos.clone().sub(prevPos)); // translate node object by the motion delta
+            prevPos.copy(newPos);
+            newPos.copy(initPos); // reset child back to its initial position
+          }
 
-            state.forceGraph
-              .d3AlphaTarget(0.3) // keep engine running at low intensity throughout drag
-              .resetCountdown(); // prevent freeze while dragging
-
-            node.__dragged = true;
-            state.onNodeDrag(node, translate);
-          });
-
-          dragControls.addEventListener("dragend", function (event) {
-            delete event.object.__initialPos; // remove tracking attributes
-            delete event.object.__prevPos;
-
-            const node = getGraphObj(event.object).__data;
-
-            // dispose previous controls if needed
-            if (node.__disposeControlsAfterDrag) {
-              dragControls.dispose();
-              delete node.__disposeControlsAfterDrag;
-            }
-
-            const initFixedPos = node.__initialFixedPos;
-            const initPos = node.__initialPos;
-            const translate = {
-              x: initPos.x - node.x,
-              y: initPos.y - node.y,
-              z: initPos.z - node.z,
-            };
-            if (initFixedPos) {
-              ["x", "y", "z"].forEach((c) => {
-                const fc = `f${c}`;
-                if (initFixedPos[fc] === undefined) {
-                  delete node[fc];
-                }
-              });
-              delete node.__initialFixedPos;
-              delete node.__initialPos;
-              if (node.__dragged) {
-                delete node.__dragged;
-                state.onNodeDragEnd(node, translate);
-              }
-            }
-
-            state.forceGraph
-              .d3AlphaTarget(0) // release engine low intensity
-              .resetCountdown(); // let the engine readjust after releasing fixed nodes
-
-            if (state.enableNavigationControls) {
-              controls.enabled = true; // Re-enable controls
-              controls.domElement &&
-                controls.domElement.ownerDocument &&
-                controls.domElement.ownerDocument.dispatchEvent(
-                  // simulate mouseup to ensure the controls don't take over after dragend
-                  new PointerEvent("pointerup", { pointerType: "touch" })
-                );
-            }
-
-            // clear cursor
-            renderer.domElement.classList.remove("grabbable");
-          });
-
-          let initZoom = 0;
-          setTimeout(() => {
-            initZoom = controls.target.distanceTo(controls.object.position);
-            calcDisplayLevel();
-          }, 500);
-          const calcDisplayLevel = () => {
-            if (initZoom === 0) return;
-            const currentZoom = controls.target.distanceTo(
-              controls.object.position
-            );
-            const zoom = initZoom / currentZoom;
-            const displayLevel = zoom > 1.4 ? 1 : 0;
-            if (displayLevel !== state.displayLevel) {
-              // console.log("displayLevel", state.displayLevel, displayLevel);
-              this.displayLevel(displayLevel);
-              dragObjs.length = 0;
-              dragObjs.push(
-                ...getListenDragNodes(state)
-                  .map((node) => node.__threeObj)
-                  .filter((obj) => obj)
-              );
-              // console.log(dragObjs);
-            }
+          const node = nodeObj.__data;
+          const newPos = nodeObj.position;
+          const translate = {
+            x: newPos.x - node.x,
+            y: newPos.y - node.y,
+            z: newPos.z - node.z,
           };
-          controls.addEventListener("change", () => {
-            calcDisplayLevel();
-          });
-        }
+          // Move fx/fy/fz (and x/y/z) of nodes based on object new position
+          ["x", "y", "z"].forEach((c) => (node[`f${c}`] = node[c] = newPos[c]));
+
+          state.forceGraph
+            .d3AlphaTarget(0.3) // keep engine running at low intensity throughout drag
+            .resetCountdown(); // prevent freeze while dragging
+
+          node.__dragged = true;
+          state.onNodeDrag(node, translate);
+        });
+
+        dragControls.addEventListener("dragend", function (event) {
+          delete event.object.__initialPos; // remove tracking attributes
+          delete event.object.__prevPos;
+
+          const node = getGraphObj(event.object).__data;
+
+          // dispose previous controls if needed
+          if (node.__disposeControlsAfterDrag) {
+            dragControls.dispose();
+            delete node.__disposeControlsAfterDrag;
+          }
+
+          const initFixedPos = node.__initialFixedPos;
+          const initPos = node.__initialPos;
+          const translate = {
+            x: initPos.x - node.x,
+            y: initPos.y - node.y,
+            z: initPos.z - node.z,
+          };
+          if (initFixedPos) {
+            ["x", "y", "z"].forEach((c) => {
+              const fc = `f${c}`;
+              if (initFixedPos[fc] === undefined) {
+                delete node[fc];
+              }
+            });
+            delete node.__initialFixedPos;
+            delete node.__initialPos;
+            if (node.__dragged) {
+              delete node.__dragged;
+              state.onNodeDragEnd(node, translate);
+            }
+          }
+
+          state.forceGraph
+            .d3AlphaTarget(0) // release engine low intensity
+            .resetCountdown(); // let the engine readjust after releasing fixed nodes
+
+          if (state.enableNavigationControls) {
+            controls.enabled = true; // Re-enable controls
+            controls.domElement &&
+              controls.domElement.ownerDocument &&
+              controls.domElement.ownerDocument.dispatchEvent(
+                // simulate mouseup to ensure the controls don't take over after dragend
+                new PointerEvent("pointerup", { pointerType: "touch" })
+              );
+          }
+
+          // clear cursor
+          renderer.domElement.classList.remove("grabbable");
+        });
       });
 
     // config renderObjs
