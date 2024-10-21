@@ -272,8 +272,7 @@ export default Kapsule({
     const calcDisplayLevel = () => {
       if (dataRef.initZoom === 0) return;
       const currentZoom = controls.target.distanceTo(controls.object.position);
-      const zoom = dataRef.initZoom / currentZoom;
-      const displayLevel = zoom > 1.4 ? 1 : 0;
+      const displayLevel = currentZoom < 200 ? 1 : 0;
       if (displayLevel !== state.displayLevel) {
         // console.log("displayLevel", state.displayLevel, displayLevel);
         this.displayLevel(displayLevel);
