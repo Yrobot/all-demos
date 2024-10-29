@@ -138,7 +138,15 @@ function diff(data1: Data, data2: Data): DiffResult {
   const nodes2 = getAllNodes(data2);
 
   // 比较节点
-  // 1. 查找删除的节点或位置发生变化的节点
+  // 1.  查找新增的节点 // 先放入新增的节点 确保 其子节点添加 在父节点之后
+  for (const [id, info2] of nodes2) {
+    const info1 = nodes1.get(id);
+    if (!info1) {
+      // 全新的节点
+      result.node.add.push({ node: info2.node, parent: info2.parent });
+    }
+  }
+  // 2. 查找删除的节点或位置发生变化的节点
   for (const [id, info1] of nodes1) {
     const info2 = nodes2.get(id);
     if (!info2) {
@@ -147,15 +155,6 @@ function diff(data1: Data, data2: Data): DiffResult {
     } else if (!arePathsEqual(info1.path, info2.path)) {
       // 节点位置发生变化，视为删除后添加
       result.node.remove.push({ node: info1.node, parent: info1.parent });
-      result.node.add.push({ node: info2.node, parent: info2.parent });
-    }
-  }
-
-  // 2. 查找新增的节点
-  for (const [id, info2] of nodes2) {
-    const info1 = nodes1.get(id);
-    if (!info1) {
-      // 全新的节点
       result.node.add.push({ node: info2.node, parent: info2.parent });
     }
   }

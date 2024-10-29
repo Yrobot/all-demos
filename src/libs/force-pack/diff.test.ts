@@ -571,4 +571,138 @@ describe("Test Diff", () => {
       []
     );
   });
+  describe("Nodes Add in Order (Child node parent should be ready)", () => {
+    const data1: Data = {
+      nodes: [],
+      links: [],
+    };
+
+    const data2: Data = {
+      nodes: [
+        {
+          id: "1",
+          children: {
+            nodes: [
+              {
+                id: "2",
+                children: {
+                  nodes: [{ id: "3" }],
+                  links: [],
+                },
+              },
+            ],
+            links: [],
+          },
+        },
+      ],
+      links: [],
+    };
+    const result = diff(data1, data2);
+    testArr(
+      "result.node.add",
+      result.node.add.map((item) => [item.node.id, item.parent?.id]),
+      [
+        ["1", undefined],
+        ["2", "1"],
+        ["3", "2"],
+      ]
+    );
+    testArr(
+      "result.node.remove",
+      result.node.remove.map((item) => [item.node.id, item.parent?.id]),
+      []
+    );
+    testArr(
+      "result.link.add",
+      result.link.add.map((item) => [
+        item.link.source,
+        item.link.target,
+        item.parent?.id,
+      ]),
+      []
+    );
+    testArr(
+      "result.link.remove",
+      result.link.remove.map((item) => [
+        item.link.source,
+        item.link.target,
+        item.parent?.id,
+      ]),
+      []
+    );
+  });
+  describe("Nodes move check nodes.add order", () => {
+    const data1: Data = {
+      nodes: [
+        {
+          id: "1",
+          children: {
+            nodes: [
+              {
+                id: "2",
+              },
+            ],
+            links: [],
+          },
+        },
+      ],
+      links: [],
+    };
+    const data2: Data = {
+      nodes: [
+        {
+          id: "1",
+          children: {
+            nodes: [
+              {
+                id: "3",
+                children: {
+                  nodes: [
+                    {
+                      id: "2",
+                    },
+                  ],
+                  links: [],
+                },
+              },
+            ],
+            links: [],
+          },
+        },
+      ],
+      links: [],
+    };
+    const result = diff(data1, data2);
+    testArr(
+      "result.node.add",
+      result.node.add.map((item) => [item.node.id, item.parent?.id]),
+      [
+        ["3", "1"],
+        ["2", "3"],
+      ]
+    );
+    testArr(
+      "result.node.remove",
+      result.node.remove.map((item) => [item.node.id, item.parent?.id]),
+      [["2", "1"]]
+    );
+    testArr(
+      "result.link.add",
+      result.link.add.map((item) => [
+        item.link.source,
+        item.link.target,
+        item.parent?.id,
+      ]),
+      []
+    );
+    testArr(
+      "result.link.remove",
+      result.link.remove.map((item) => [
+        item.link.source,
+        item.link.target,
+        item.parent?.id,
+      ]),
+      []
+    );
+  });
 });
