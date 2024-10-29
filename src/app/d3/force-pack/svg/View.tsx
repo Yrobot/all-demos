@@ -189,8 +189,8 @@ const drawLevelForce = (
   nodeArr
     .append("circle")
     .attr("r", (d) => radius)
-    .attr("fill", color)
-    .attr("max", levelMaxLen);
+    .attr("fill", color);
+  // .attr("max", levelMaxLen);
   // .attr('cursor', 'pointer');
 
   simulation.on("tick", () => {
