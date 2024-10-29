@@ -9,7 +9,7 @@ type MyLink = {
   target: ID;
 };
 
-type Data = {
+export type Data = {
   nodes: MyNode<Data>[];
   links: MyLink[];
 };

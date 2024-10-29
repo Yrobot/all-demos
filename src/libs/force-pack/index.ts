@@ -6,6 +6,8 @@ import { SVGCanvas } from "./draw";
 
 import diff from "./diff";
 
+import deepClone from "./deepClone";
+
 const dataLoop = (
   data: Data,
   {
@@ -43,8 +45,6 @@ const dataLoop = (
   });
 };
 
-const deepCopy = (data: Data) => {};
-
 type IDs = string[];
 const compareIds = (arr1: IDs, arr2: IDs) => {
   if (arr1.length !== arr2.length) return false;
@@ -69,13 +69,43 @@ const compareIds = (arr1: IDs, arr2: IDs) => {
   return true;
 };
 
+const safeData = (data: any) => {
+  if ([null, undefined].includes(data))
+    return {
+      nodes: [],
+      links: [],
+    };
+  if (!(data instanceof Object)) throw new Error("graphData must be an object");
+  if (!data.nodes) data.nodes = [];
+  if (!data.links) data.links = [];
+  if (!(data["nodes"] instanceof Array))
+    throw new Error("graphData.nodes must be an array");
+  if (!(data["links"] instanceof Array))
+    throw new Error("graphData.links must be an array");
+  return data;
+};
+
 export default Kapsule({
   props: {
     graphData: {
       default: null,
       onChange(data: Data, state) {
-        if (data?.nodes) {
-        }
+        const canvas = state.canvas as SVGCanvas;
+        if (!canvas) return; // not ready
+
+        const newData = deepClone(safeData(data));
+        const oldData = safeData((this as any)?._oldData);
+
+        const { node, link } = diff(newData, oldData);
+
+        node.add.forEach(({ node, parent }) => {
+          // canvas.prepareNode();
+        });
+        node.remove.forEach(({ node, parent }) => {
+          state.canvas.removeNode(node, parent);
+        });
+
+        (this as any)._oldData = data;
       },
     },
     containerId: {
