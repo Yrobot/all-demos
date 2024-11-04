@@ -2,7 +2,7 @@ import * as d3 from "d3";
 import { Canvas, NodeProps, LinkProps } from "./types";
 
 export class SVGCanvas extends Canvas {
-  containerId?: string;
+  container: HTMLDivElement;
   svg?: d3.Selection<any, any, any, any>;
   nodeMap: Record<
     string,
@@ -16,32 +16,38 @@ export class SVGCanvas extends Canvas {
     string,
     d3.Selection<SVGLineElement, undefined, null, undefined>
   > = {};
-  constructor({ containerId }: { containerId: string }) {
+  constructor({ container }: { container: HTMLDivElement }) {
     super();
-    this.containerId = containerId;
+    this.container = container;
   }
 
   init() {
-    if (!this.containerId) throw new Error("containerId is required");
-
-    const container = document.getElementById(this.containerId);
-
-    if (!container) throw new Error("container is not found");
-
-    const { width, height } = container.getBoundingClientRect();
+    const { width, height } = this.container.getBoundingClientRect();
 
     const svg = d3
-      .select(this.containerId)
+      .select(this.container)
       .append("svg")
-      .attr("width", width)
-      .attr("height", height);
+      .attr("width", width || 400)
+      .attr("height", height || 300)
+      .append("g")
+      .attr("transform", `translate(${width / 2},${height / 2})`);
 
     this.svg = svg;
     return svg;
   }
 
-  prepareNode: Canvas["prepareNode"] = ({ props, id }) => {
-    const root = d3.create("g");
+  prepareNode: Canvas["prepareNode"] = ({ props, id, parent }) => {
+    const root: d3.Selection<SVGGElement, undefined, null, undefined> = !!parent
+      ? (() => {
+          const parentGroup = this.nodeMap[parent.id as string];
+          if (!parentGroup) throw new Error(`Parent Node is not found`);
+          return parentGroup.container.append("g");
+        })()
+      : (() => {
+          if (!this.svg) throw new Error("svg scene is not ready");
+          return this.svg.append("g");
+        })();
+
     const container = root.append("g");
     const node = root.append("circle");
 
@@ -63,6 +69,7 @@ export class SVGCanvas extends Canvas {
 
   updateNode: Canvas["updateNode"] = ({ props, id }) => {
     const group = this.nodeMap[id];
+
     if (!group) throw new Error("node is not found");
     const node = group.node;
     const root = group.root;
@@ -73,8 +80,18 @@ export class SVGCanvas extends Canvas {
       root.attr("transform", `translate(${props.position.join(",")})`);
   };
 
-  prepareLink: Canvas["prepareLink"] = ({ props, id }) => {
-    const link = d3.create("line");
+  prepareLink: Canvas["prepareLink"] = ({ props, id, parent }) => {
+    const link: d3.Selection<SVGLineElement, undefined, null, undefined> =
+      !!parent
+        ? (() => {
+            const parentGroup = this.nodeMap[parent.id as string];
+            if (!parentGroup) throw new Error(`Parent Node is not found`);
+            return parentGroup.container.append("line");
+          })()
+        : (() => {
+            if (!this.svg) throw new Error("svg scene is not ready");
+            return this.svg.append("line");
+          })();
     this.linkMap[id] = link;
     this.updateLink({ props, id });
     return link;

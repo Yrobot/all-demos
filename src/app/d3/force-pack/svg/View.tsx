@@ -1,6 +1,46 @@
 "use client";
 import React, { useEffect } from "react";
 import * as d3 from "d3";
+type Data = {
+  nodes: any[];
+  links: any[];
+};
+const dataLoop = (
+  data: Data,
+  {
+    level = 0,
+    parentNode = null,
+    hook = () => {},
+  }: {
+    level: number;
+    parentNode: null | Node;
+    hook: ({
+      data,
+      parentNode,
+      level,
+    }: {
+      data: Data;
+      parentNode: null | Node;
+      level: number;
+    }) => void;
+  }
+) => {
+  hook({
+    data,
+    parentNode,
+    level,
+  });
+
+  data?.nodes?.forEach((node) => {
+    if (node.children) {
+      dataLoop(node.children as Data, {
+        level: level + 1,
+        parentNode: node,
+        hook,
+      });
+    }
+  });
+};
 
 const graphData = {
   nodes: [
@@ -130,7 +170,21 @@ const drawLevelForce = (
     level = 0,
     center = [0, 0],
     containerRadius,
-  }: { level: number; center?: [number, number]; containerRadius: number }
+    maps = {},
+    parent,
+  }: {
+    level: number;
+    center?: [number, number];
+    containerRadius: number;
+    maps?: Record<
+      string,
+      {
+        linkArr: d3.Selection<SVGLineElement, Link, SVGGElement, any>;
+        nodeArr: d3.Selection<SVGGElement, Node, SVGGElement, any>;
+      }
+    >;
+    parent?: Node;
+  }
 ) => {
   const { nodes, links } = data;
 
@@ -193,25 +247,34 @@ const drawLevelForce = (
   // .attr("max", levelMaxLen);
   // .attr('cursor', 'pointer');
 
-  simulation.on("tick", () => {
-    linkArr
-      .attr("x1", (d) => (d.source as Node).x!)
-      .attr("y1", (d) => (d.source as Node).y!)
-      .attr("x2", (d) => (d.target as Node).x!)
-      .attr("y2", (d) => (d.target as Node).y!);
+  // simulation.on("tick", () => {
+  //   linkArr
+  //     .attr("x1", (d) => (d.source as Node).x!)
+  //     .attr("y1", (d) => (d.source as Node).y!)
+  //     .attr("x2", (d) => (d.target as Node).x!)
+  //     .attr("y2", (d) => (d.target as Node).y!);
 
-    nodeArr.attr("transform", (d) => `translate(${d.x},${d.y})`);
-  });
+  //   nodeArr.attr("transform", (d) => `translate(${d.x},${d.y})`);
+  // });
 
-  nodeArr.each(function (d) {
+  maps[parent?.id || ""] = {
+    linkArr,
+    nodeArr,
+  };
+
+  nodeArr.each(function (d, i) {
     const node = d3.select(this);
     if (d.children) {
       drawLevelForce(d.children, node.append("g"), {
         level: level + 1,
         containerRadius: radius,
+        maps,
+        parent: nodes[i],
       });
     }
   });
+
+  return maps;
 };
 
 //////////////////////// DATA
@@ -231,11 +294,30 @@ const main = () => {
     .attr("width", width)
     .attr("height", height);
 
-  drawLevelForce({ nodes, links }, svg, {
+  const itemMaps = drawLevelForce({ nodes, links }, svg, {
     level: 0,
     center: [width / 2, height / 2],
     containerRadius: Math.min(width, height) / 2,
   });
+
+  const animate = () => {
+    requestAnimationFrame(animate);
+    dataLoop(graphData, {
+      parentNode: null,
+      level: 0,
+      hook: ({ data, parentNode, level }) => {
+        const parentId = parentNode?.id || "";
+        const { linkArr, nodeArr } = itemMaps[parentId];
+        linkArr
+          .attr("x1", (d) => (d.source as Node).x!)
+          .attr("y1", (d) => (d.source as Node).y!)
+          .attr("x2", (d) => (d.target as Node).x!)
+          .attr("y2", (d) => (d.target as Node).y!);
+        nodeArr.attr("transform", (d) => `translate(${d.x},${d.y})`);
+      },
+    });
+  };
+  animate();
 };
 
 function View() {
