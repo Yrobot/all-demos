@@ -1,7 +1,23 @@
 "use client";
-import React, { useRef, useCallback, useState } from "react";
+import React, {
+  useRef,
+  useCallback,
+  useState,
+  useMemo,
+  useEffect,
+} from "react";
 import ForceGraph3D from "@/libs/force-graph";
 import SpriteText from "three-spritetext";
+
+const loopData = (d: typeof data, hook: Function) => {
+  hook(d, null);
+  // return;
+  d?.nodes?.forEach((node: any) => {
+    if (node.children) {
+      hook(node.children as typeof data, node);
+    }
+  });
+};
 
 const data = {
   nodes: [
@@ -115,6 +131,47 @@ function View() {
   const [selectedNode, setSelectedNode] = useState<any>(null);
   const [hoverNode, setHoverNode] = useState<any>(null);
 
+  const focusParentId = useMemo(() => {
+    const childId = selectedNode?.id;
+    if (!childId) return null;
+
+    for (let index = 0; index < data.nodes.length; index++) {
+      const parent = data.nodes[index];
+      if (parent.children?.nodes?.find((n: any) => n.id === childId)) {
+        return parent.id;
+      }
+    }
+    return null;
+  }, [selectedNode?.id]);
+
+  useEffect(() => {
+    loopData(data, (d: typeof data, parent: any | null) => {
+      const isFirstLevel = parent === null;
+      d.nodes.forEach((node) => {
+        const opacity = (() => {
+          if (focusParentId === null) return 1;
+          if (isFirstLevel) {
+            return node.id === focusParentId ? 1 : 0.1;
+          } else {
+            return parent.id === focusParentId ? 1 : 0.1;
+          }
+        })();
+        (node as any)["opacity"] = opacity;
+      });
+      d.links.forEach((link) => {
+        const opacity = (() => {
+          if (focusParentId === null) return 1;
+          if (isFirstLevel) {
+            return 0.1;
+          } else {
+            return parent.id === focusParentId ? 1 : 0.1;
+          }
+        })();
+        (link as any)["opacity"] = opacity;
+      });
+    });
+  }, [focusParentId]);
+
   const fgRef = useRef<any>(null);
 
   const lookAt = useCallback(
@@ -187,7 +244,10 @@ function View() {
   const onNodeClick = useCallback(
     (node: any) => {
       console.log(`onNodeClick [${node?.id}]`, node);
-      setSelectedNode(node);
+      setSelectedNode((old: any) => {
+        if (old?.id === node?.id) return null;
+        return node;
+      });
       const level = node?.__threeObj?.__renderLevel;
       if (level === 0) {
         // const group = node?.__threeObj?.__group;
@@ -207,7 +267,7 @@ function View() {
         // lookAt(center);
         lookAt(node);
       } else {
-        alert(`onNodeClick [${node?.id}]`);
+        // alert(`onNodeClick [${node?.id}]`);
       }
     },
     [setSelectedNode]
@@ -230,6 +290,8 @@ function View() {
       // sprite.center.set(0.5, 3.5); // set the text position
       sprite.textHeight = getTextHeight(node?.data?.shortName);
       sprite.color = "white";
+      sprite.material.opacity = node.opacity || 1;
+      sprite.renderOrder = 99; // make sure it is rendered on top of the text
       return sprite;
     },
     []

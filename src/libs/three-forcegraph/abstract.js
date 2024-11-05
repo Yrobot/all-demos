@@ -350,6 +350,7 @@ export const loopInitLevelScene = ({
         return obj;
       },
       updateObj: (updObj, link) => {
+        const linkOpacityProp = link.opacity || 1;
         // return;
         if (updObj.__graphDefaultObj) {
           // bypass internal updates for custom link objects
@@ -400,7 +401,8 @@ export const loopInitLevelScene = ({
             const materialColor = new three.Color(
               colorStr2Hex(color || "#f0f0f0")
             );
-            const opacity = state.linkOpacity * colorAlpha(color);
+            const opacity =
+              state.linkOpacity * colorAlpha(color) * linkOpacityProp;
 
             const materialType = useCylinder
               ? "MeshLambertMaterial"
@@ -462,6 +464,8 @@ export const loopInitLevelScene = ({
           const numSegments = state.linkDirectionalArrowResolution;
           link.__arrowLength = arrowLength;
 
+          const linkOpacityProp = link.opacity || 1;
+
           if (
             !obj.geometry.type.match(/^Cone(Buffer)?Geometry$/) ||
             obj.geometry.parameters.height !== arrowLength ||
@@ -483,7 +487,8 @@ export const loopInitLevelScene = ({
           const arrowColor =
             arrowColorAccessor(link) || colorAccessor(link) || "#f0f0f0";
           obj.material.color = new three.Color(colorStr2Hex(arrowColor));
-          obj.material.opacity = state.linkOpacity * 3 * colorAlpha(arrowColor);
+          obj.material.opacity =
+            state.linkOpacity * 3 * colorAlpha(arrowColor) * linkOpacityProp;
         },
       });
     }
@@ -877,7 +882,10 @@ const levelNodesStyle = ({ data, state, level = 0 }) => {
 
     const levelOpacity = level < displayLevel ? 0.3 : 1;
 
-    const opacity = state.nodeOpacity * colorAlpha(color) * levelOpacity;
+    const nodeOpacity = node.opacity || 1;
+
+    const opacity =
+      state.nodeOpacity * colorAlpha(color) * levelOpacity * nodeOpacity;
 
     obj.material.opacity = opacity;
     obj.material.color = materialColor;
@@ -907,6 +915,10 @@ const levelLinksStyle = ({ data, state, level = 0 }) => {
       obj.visible = false;
       return;
     }
+
+    obj.material.opacity = link.opacity || 1;
+
+    return;
     const linkWidth = Math.ceil(widthAccessor(link) * 10) / 10;
     const useCylinder = !!linkWidth;
 
@@ -1180,6 +1192,9 @@ const levelLinksStyle = ({ data, state, level = 0 }) => {
     const linkLen = arrowLengthAccessor(link);
     obj.visible = !!linkLen;
     if (!linkLen) return;
+
+    obj.material.opacity = link.opacity || 1;
+    return;
     const arrowLength = link.__arrowLength;
     const numSegments = state.linkDirectionalArrowResolution;
 
@@ -1293,12 +1308,12 @@ const levelLinksStyle = ({ data, state, level = 0 }) => {
 
     updateLinkPosition(link);
 
-    // updateLinkArr(link);
+    updateLinkArr(link);
 
     // updateLinkPhotons(link);
 
     // update node mesh
-    // updateLinkMesh(link);
+    updateLinkMesh(link);
   });
 };
 
