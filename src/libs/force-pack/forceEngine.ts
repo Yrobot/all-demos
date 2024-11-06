@@ -57,11 +57,16 @@ class ForceEngine {
       containerRadius,
     } = props;
 
+    const linkLen = (nodeRadius || 4) * 3;
+
     if (nodes) simulation.nodes(nodes as d3.SimulationNodeDatum[]);
     if (links)
       simulation.force(
         "link",
-        d3.forceLink(links).id((d: any) => d.id)
+        d3
+          .forceLink(links)
+          .id((d: any) => d.id)
+          .distance(linkLen)
       );
     if (center) simulation.force("center", d3.forceCenter(...center));
     if (nodeRadius) simulation.force("collision", d3.forceCollide(nodeRadius));

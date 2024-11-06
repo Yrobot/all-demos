@@ -1,7 +1,7 @@
 import * as d3 from "d3";
 import { Canvas, NodeProps, LinkProps } from "./types";
 
-export class SVGCanvas extends Canvas {
+class SVGCanvas extends Canvas {
   container: HTMLDivElement;
   svg?: d3.Selection<any, any, any, any>;
   nodeMap: Record<
@@ -124,3 +124,5 @@ export class SVGCanvas extends Canvas {
     link?.remove();
   };
 }
+
+export default SVGCanvas;

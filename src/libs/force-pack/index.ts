@@ -2,7 +2,7 @@ import Kapsule from "kapsule";
 
 import { Data, Node, Link, NodeProps, LinkProps } from "./types";
 
-import { SVGCanvas } from "./draw";
+import SVGCanvas from "./SVGCanvas";
 import ForceEngine from "./forceEngine";
 
 import diff from "./diff";
@@ -165,7 +165,7 @@ function calculateContainerRadius({
   // 计算从立方体中心到角落的距离
   const cornerDistance = Math.sqrt(3) * halfCubeSize;
 
-  const contentRadius = (cornerDistance + childRadius) * 1.6;
+  const contentRadius = (cornerDistance + childRadius) * 2;
 
   return contentRadius + padding;
 }
