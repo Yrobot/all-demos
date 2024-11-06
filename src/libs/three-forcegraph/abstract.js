@@ -30,7 +30,7 @@ import {
 } from "./utils/color-utils";
 import getDagDepths from "./utils/dagDepths";
 
-const getLinkPoints = ({ link, isD3Sim, radius }) => {
+const getLinkPoints = ({ link, isD3Sim, radius, r1 = radius, r2 = radius }) => {
   const pos = isD3Sim
     ? link
     : getLayout(data).getLinkPosition(
@@ -51,8 +51,8 @@ const getLinkPoints = ({ link, isD3Sim, radius }) => {
   const [start, end] = getSphereIntersectionPoints({
     c1: [startNode.x, startNode.y, startNode.z],
     c2: [endNode.x, endNode.y, endNode.z],
-    r1: radius || MIN_RADIUS,
-    r2: radius || MIN_RADIUS,
+    r1: r1 || MIN_RADIUS,
+    r2: r2 || MIN_RADIUS,
   }).map(([x, y, z]) => ({
     x,
     y,
@@ -73,6 +73,27 @@ const applyMatrix4Fn = new three.BufferGeometry().applyMatrix4
 
 const MIN_RADIUS = 4;
 const MIN_LINK_LEN = 12;
+
+function calculateContainerRadius(childRadius, childLen, padding = 8) {
+  if (childLen <= 1) {
+    return childRadius + padding;
+  }
+
+  // 计算最小立方体边长，该立方体可以容纳所有子球体
+  const minCubeSize = Math.ceil(Math.cbrt(childLen));
+
+  // 计算立方体的半边长（考虑球体间距）
+  const halfCubeSize = (minCubeSize - 1) * childRadius;
+
+  // 计算从立方体中心到角落的距离
+  const cornerDistance = Math.sqrt(3) * halfCubeSize;
+
+  // 容器球体半径 = 角落距离 + 子球体半径 + 内部填充
+  const containerRadius = cornerDistance + childRadius + padding;
+
+  return containerRadius * 1.6;
+}
+
 const radiusToLinkLen = (radius = MIN_RADIUS) =>
   Math.min(
     Math.max(MIN_LINK_LEN, radius * 3.6),
@@ -91,9 +112,7 @@ export const loopInitLevelScene = ({
   const levelMaxLen = Math.max(...data.nodes.map(getAllChildLength)) || 1;
   const radius = (() => {
     if (levelMaxLen === 1) return MIN_RADIUS;
-    return (
-      (MIN_RADIUS * levelMaxLen) / 4 + MIN_LINK_LEN * levelMaxLen * 0.2 + 8 * 2
-    );
+    return calculateContainerRadius(MIN_RADIUS, levelMaxLen);
   })();
   data.radius = radius;
   setGroup(data, group);
@@ -156,6 +175,7 @@ export const loopInitLevelScene = ({
         ]),
       objFilter: (obj) => obj.__graphObjType === "node",
       createObj: (node) => {
+        node.radius = radius;
         let customObj = customObjectAccessor(
           node,
           state.displayLevel === level
@@ -185,11 +205,12 @@ export const loopInitLevelScene = ({
         obj.__renderLevel = level;
         obj.__group = group;
 
-        obj.renderOrder = level; // threejs render order
+        obj.renderOrder = level + 0.5; // threejs render order
 
         return obj;
       },
       updateObj: (obj, node) => {
+        node.radius = radius;
         // return;
         if (obj.__graphDefaultObj) {
           // bypass internal updates for custom node objects
@@ -341,7 +362,7 @@ export const loopInitLevelScene = ({
           }
         }
 
-        obj.renderOrder = 10; // Prevent visual glitches of dark lines on top of nodes by rendering them last
+        obj.renderOrder = level + 0.5; // Prevent visual glitches of dark lines on top of nodes by rendering them last
 
         obj.__graphObjType = "link"; // Add object type
         obj.__renderLevel = level;
@@ -888,6 +909,11 @@ const levelNodesStyle = ({ data, state, level = 0 }) => {
       state.nodeOpacity * colorAlpha(color) * levelOpacity * nodeOpacity;
 
     obj.material.opacity = opacity;
+    // if (level > 0) {
+    //   obj.material.transparent = false;
+    //   obj.material.depthWrite = true;
+    //   // obj.material.depthTest = true;
+    // }
     obj.material.color = materialColor;
   });
 };
@@ -1121,7 +1147,12 @@ const levelLinksStyle = ({ data, state, level = 0 }) => {
 
   function calcLinkCurve(link) {
     // get sphere intersection points as link start and end
-    const [start, end] = getLinkPoints({ link, isD3Sim, radius: data.radius });
+    const [start, end] = getLinkPoints({
+      link,
+      isD3Sim,
+      radius: data.radius,
+      // r2: data.radius,
+    });
     if (start === null) return;
 
     const curvature = linkCurvatureAccessor(link);
