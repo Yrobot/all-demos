@@ -164,6 +164,7 @@ export default Kapsule({
     onLinkHover: { triggerUpdate: false },
     onBackgroundClick: { triggerUpdate: false },
     onBackgroundRightClick: { triggerUpdate: false },
+    cameraAnimationTime: { triggerUpdate: false, default: 0 },
     ...linkedFGProps,
     ...linkedRenderObjsProps,
   },
@@ -269,13 +270,27 @@ export default Kapsule({
       initZoom: 0,
     };
 
+    const AnimationTime = 3000;
+    const debounceDisplayLevel = (level) => {
+      if (state.cameraAnimationTime > 0)
+        if (Date.now() - state.cameraAnimationTime < AnimationTime) return;
+
+      this.displayLevel(level);
+      this.cameraAnimationTime(0);
+    };
+
+    const LEN = 20;
     const calcDisplayLevel = () => {
       if (dataRef.initZoom === 0) return;
       const currentZoom = controls.target.distanceTo(controls.object.position);
-      const displayLevel = currentZoom < 200 ? 1 : 0;
+      const displayLevel = (() => {
+        if (currentZoom < 200 - LEN) return 1;
+        if (currentZoom > 200 + LEN) return 0;
+        return state.displayLevel;
+      })();
       if (displayLevel !== state.displayLevel) {
         // console.log("displayLevel", state.displayLevel, displayLevel);
-        this.displayLevel(displayLevel);
+        debounceDisplayLevel(displayLevel);
         setDrags(
           getListenDragNodes(state)
             .map((node) => node.__threeObj)

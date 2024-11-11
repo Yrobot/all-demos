@@ -19,6 +19,31 @@ const loopData = (d: typeof data, hook: Function) => {
   });
 };
 
+const getSP = (svId: string, d: typeof data) => {
+  if (!d?.nodes) return null;
+  let result: any = [];
+  d.nodes.forEach((sp) => {
+    if (result[0]) return;
+    const svList = sp?.children?.nodes || [];
+    svList.forEach((sv) => {
+      if (sv.id === svId) {
+        result.push(sp, sv);
+        return;
+      }
+    });
+  });
+  return result;
+};
+
+const getSVPos = (d: typeof data, svId: string) => {
+  const [sp, sv] = getSP(svId, d);
+  return {
+    x: sp.x + sv.x,
+    y: sp.y + sv.y,
+    z: sp.z + sv.z,
+  };
+};
+
 const data = {
   nodes: [
     {
@@ -175,11 +200,12 @@ function View() {
   const fgRef = useRef<any>(null);
 
   const lookAt = useCallback(
-    (position: any) => {
+    (position: any, ignoreLevelChange = false) => {
       const graph = fgRef.current;
       const distance = 120;
       const distRatio =
         1 + distance / Math.hypot(position.x, position.y, position.z);
+      if (ignoreLevelChange) graph.cameraAnimationTime(Date.now());
       graph.cameraPosition(
         {
           x: position.x * distRatio,
@@ -268,9 +294,10 @@ function View() {
         lookAt(node);
       } else {
         // alert(`onNodeClick [${node?.id}]`);
+        lookAt(getSVPos(data, node.id), true);
       }
     },
-    [setSelectedNode]
+    [setSelectedNode, lookAt]
   );
 
   const onNodeHover = useCallback(

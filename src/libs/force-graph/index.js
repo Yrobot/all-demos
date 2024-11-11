@@ -22,6 +22,7 @@ const ForceGraph3D = fromKapsule(ForceGraph3DKapsule, {
     "renderer",
     "controls",
     "refresh",
+    "cameraAnimationTime",
   ],
   initPropNames: ["controlType", "rendererConfig", "extraRenderers"],
 });
