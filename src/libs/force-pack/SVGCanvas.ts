@@ -1,8 +1,76 @@
 import * as d3 from "d3";
-import { Canvas, NodeProps, LinkProps } from "./types";
+import mitt, { Emitter, EventType } from "mitt";
+import { Canvas, NodeProps, Data } from "./types";
+
+type Events = {
+  dragStart: {
+    id: string;
+    event: d3.D3DragEvent<any, any, any>;
+  };
+  dragging: {
+    id: string;
+    event: d3.D3DragEvent<any, any, any>;
+  };
+  dragEnd: {
+    id: string;
+    event: d3.D3DragEvent<any, any, any>;
+  };
+};
+
+type Mitt = Emitter<Events>;
+
+const updatePosition = ({
+  node,
+  position,
+}: {
+  node: d3.Selection<SVGGElement, undefined, null, undefined>;
+  position: number[];
+}) => {
+  node.attr("transform", `translate(${position.join(",")})`);
+};
+
+const listenDrag = ({
+  node,
+  id,
+  emitter,
+}: {
+  node: d3.Selection<SVGCircleElement, undefined, null, undefined>;
+  emitter: Mitt;
+  id: string;
+}): Function => {
+  // 拖拽开始
+  function dragStart(event: d3.D3DragEvent<any, any, any>) {
+    emitter.emit("dragStart", { id, event });
+  }
+
+  // 拖拽中
+  function dragged(event: d3.D3DragEvent<any, any, any>, ...props: any[]) {
+    emitter.emit("dragging", { id, event });
+  }
+
+  // 拖拽结束
+  function dragEnd(event: d3.D3DragEvent<any, any, any>) {
+    emitter.emit("dragEnd", { id, event });
+  }
+
+  const eventBehavior = d3
+    .drag<any, any>()
+    .on("start", dragStart)
+    .on("drag", dragged)
+    .on("end", dragEnd);
+
+  node.call(eventBehavior);
+
+  const unListen = () => {
+    eventBehavior.on("start", null).on("drag", null).on("end", null);
+  };
+
+  return unListen;
+};
 
 class SVGCanvas extends Canvas {
   container: HTMLDivElement;
+  emitter = mitt<Events>();
   svg?: d3.Selection<any, any, any, any>;
   nodeMap: Record<
     string,
@@ -20,6 +88,11 @@ class SVGCanvas extends Canvas {
     super();
     this.container = container;
   }
+  unListenHookMap: Record<string, Function> = {};
+
+  on = this.emitter.on.bind(this.emitter);
+
+  off = this.emitter.off.bind(this.emitter);
 
   init() {
     const { width, height } = this.container.getBoundingClientRect();
@@ -34,6 +107,10 @@ class SVGCanvas extends Canvas {
 
     this.svg = svg;
     return svg;
+  }
+
+  destroy() {
+    this.emitter.all.clear();
   }
 
   prepareNode: Canvas["prepareNode"] = ({ props, id, parent }) => {
@@ -64,6 +141,8 @@ class SVGCanvas extends Canvas {
       id,
     });
 
+    this.listenNodeEvents({ id });
+
     return result;
   };
 
@@ -77,7 +156,7 @@ class SVGCanvas extends Canvas {
     if (props.color) node.attr("fill", props.color);
     if (props.opacity) node.attr("opacity", props.opacity);
     if (props.position)
-      root.attr("transform", `translate(${props.position.join(",")})`);
+      updatePosition({ node: root, position: props.position });
   };
 
   prepareLink: Canvas["prepareLink"] = ({ props, id, parent }) => {
@@ -116,12 +195,31 @@ class SVGCanvas extends Canvas {
     const node = this.nodeMap[id];
     delete this.nodeMap[id];
     node?.root.remove();
+    this.unListenNodeEvents({ id });
   };
 
   removeLink: Canvas["removeLink"] = ({ id }) => {
     const link = this.linkMap[id];
     delete this.linkMap[id];
     link?.remove();
+  };
+
+  listenNodeEvents = ({ id }: { id: string }) => {
+    const node = this.nodeMap[id]?.node;
+    if (!node) throw new Error("node is not found");
+    if (this.unListenHookMap[id]) {
+      this.unListenHookMap[id]();
+      delete this.unListenHookMap[id];
+    }
+    const unListenHook = listenDrag({ node, emitter: this.emitter, id });
+    this.unListenHookMap[id] = unListenHook;
+  };
+  unListenNodeEvents = ({ id }: { id: string }) => {
+    const unListenHook = this.unListenHookMap[id];
+    if (unListenHook) {
+      unListenHook();
+      delete this.unListenHookMap[id];
+    }
   };
 }
 

@@ -300,8 +300,8 @@ export default Kapsule({
     graphData: {
       default: null,
       onChange(data: Data, state) {
-        const canvas = state.canvas as Canvas;
-        const engine = state.engine as Engine;
+        const canvas = (this as any).canvas as Canvas;
+        const engine = (this as any).engine as Engine;
         if (!canvas || !engine) return; // not ready
 
         // const newData = deepClone(safeData(data));
@@ -337,7 +337,7 @@ export default Kapsule({
   },
   methods: {
     tick(state) {
-      const canvas = state.canvas as Canvas;
+      const canvas = (this as any).canvas as Canvas;
       const prepare = (this as any).prepare as Prepare;
       if (!canvas || !prepare) return;
       dataLoop(state.graphData, {
@@ -366,8 +366,42 @@ export default Kapsule({
       container: domNode,
     });
     canvas.init();
-    state.canvas = canvas;
-    state.engine = new Engine();
+    (this as any).canvas = canvas;
+    (this as any).engine = new Engine();
+
+    // listen node drag events
+    canvas.on("dragStart", ({ id, event }) => {
+      // console.log("dragStart", id, event);
+      // const { node, parent } =
+      //   ((this as any).prepare as Prepare)?.nodeMap?.[id] || {};
+      // if (!node) return;
+      // const simulation = ((this as any).engine as Engine).get(parent || "");
+      // if (!event.active) simulation?.alphaTarget(0.3).restart();
+      // node.fx = node.x;
+      // node.fy = node.y;
+    });
+    canvas.on("dragging", ({ id, event }) => {
+      // console.log("dragging", id, event);
+      const node = ((this as any).prepare as Prepare)?.nodeMap?.[id]?.node;
+      if (!node) return;
+
+      // (node.x as number) += event.dx;
+      // (node.y as number) += event.dy;
+      // const node = ((this as any).prepare as Prepare)?.nodeMap?.[id]?.node;
+      // if (!node) return;
+      // node.fx = node.x;
+      // node.fy = node.y;
+    });
+    canvas.on("dragEnd", ({ id, event }) => {
+      // console.log("dragEnd", id, event);
+      // const { node, parent } =
+      //   ((this as any).prepare as Prepare)?.nodeMap?.[id] || {};
+      // if (!node) return;
+      // const simulation = ((this as any).engine as Engine).get(parent || "");
+      // if (!event.active) simulation?.alphaTarget(0);
+      // node.fx = null;
+      // node.fy = null;
+    });
   },
   stateInit: (potions) => {
     return {};
