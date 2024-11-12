@@ -943,6 +943,7 @@ const levelLinksStyle = ({ data, state, level = 0 }) => {
     }
 
     obj.material.opacity = link.opacity || 1;
+    obj.material.transparent = true;
 
     return;
     const linkWidth = Math.ceil(widthAccessor(link) * 10) / 10;
