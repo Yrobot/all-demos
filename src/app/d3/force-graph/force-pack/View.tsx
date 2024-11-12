@@ -155,18 +155,23 @@ const getNodeColor = (
 function View() {
   const [selectedNode, setSelectedNode] = useState<any>(null);
   const [hoverNode, setHoverNode] = useState<any>(null);
+  const [highlightParentId, setHighlightParentId] = useState<string | null>(
+    null
+  );
 
-  const focusParentId = useMemo(() => {
-    const childId = selectedNode?.id;
-    if (!childId) return null;
+  useEffect(() => {
+    setHighlightParentId(() => {
+      const childId = selectedNode?.id;
+      if (!childId) return null;
 
-    for (let index = 0; index < data.nodes.length; index++) {
-      const parent = data.nodes[index];
-      if (parent.children?.nodes?.find((n: any) => n.id === childId)) {
-        return parent.id;
+      for (let index = 0; index < data.nodes.length; index++) {
+        const parent = data.nodes[index];
+        if (parent.children?.nodes?.find((n: any) => n.id === childId)) {
+          return parent.id;
+        }
       }
-    }
-    return null;
+      return null;
+    });
   }, [selectedNode?.id]);
 
   useEffect(() => {
@@ -174,28 +179,28 @@ function View() {
       const isFirstLevel = parent === null;
       d.nodes.forEach((node) => {
         const opacity = (() => {
-          if (focusParentId === null) return 1;
+          if (highlightParentId === null) return 1;
           if (isFirstLevel) {
-            return node.id === focusParentId ? 1 : 0.1;
+            return node.id === highlightParentId ? 1 : 0.1;
           } else {
-            return parent.id === focusParentId ? 1 : 0.1;
+            return parent.id === highlightParentId ? 1 : 0.1;
           }
         })();
         (node as any)["opacity"] = opacity;
       });
       d.links.forEach((link) => {
         const opacity = (() => {
-          if (focusParentId === null) return 1;
+          if (highlightParentId === null) return 1;
           if (isFirstLevel) {
             return 0.1;
           } else {
-            return parent.id === focusParentId ? 1 : 0.1;
+            return parent.id === highlightParentId ? 1 : 0.1;
           }
         })();
         (link as any)["opacity"] = opacity;
       });
     });
-  }, [focusParentId]);
+  }, [highlightParentId]);
 
   const fgRef = useRef<any>(null);
 
@@ -270,10 +275,6 @@ function View() {
   const onNodeClick = useCallback(
     (node: any) => {
       console.log(`onNodeClick [${node?.id}]`, node);
-      setSelectedNode((old: any) => {
-        if (old?.id === node?.id) return null;
-        return node;
-      });
       const level = node?.__threeObj?.__renderLevel;
       if (level === 0) {
         // const group = node?.__threeObj?.__group;
@@ -292,12 +293,17 @@ function View() {
         // );
         // lookAt(center);
         lookAt(node);
+        setHighlightParentId(node.id);
       } else {
         // alert(`onNodeClick [${node?.id}]`);
         lookAt(getSVPos(data, node.id), true);
+        setSelectedNode((old: any) => {
+          if (old?.id === node?.id) return null;
+          return node;
+        });
       }
     },
-    [setSelectedNode, lookAt]
+    [setSelectedNode, lookAt, setHighlightParentId]
   );
 
   const onNodeHover = useCallback(
