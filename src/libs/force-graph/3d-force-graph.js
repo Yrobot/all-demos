@@ -34,6 +34,17 @@ const getListenDragNodes = (state) => {
   return nodes;
 };
 
+const getNodeLen = (data) => {
+  let len = 0;
+  let temp = [data];
+  while (temp.length > 0) {
+    const d = temp.shift();
+    len += d.nodes.length;
+    temp.push(...d.nodes.map((node) => node.children).filter((v) => !!v));
+  }
+  return len;
+};
+
 //
 
 const CAMERA_DISTANCE2NODES_FACTOR = 170;
@@ -325,7 +336,8 @@ export default Kapsule({
         ) {
           camera.lookAt(state.forceGraph.position);
           state.lastSetCameraZ = camera.position.z =
-            Math.cbrt(state.graphData.nodes.length) *
+            Math.cbrt(getNodeLen(state.graphData)) *
+            // Math.cbrt(state.graphData.nodes.length) *
             CAMERA_DISTANCE2NODES_FACTOR;
         }
       })
